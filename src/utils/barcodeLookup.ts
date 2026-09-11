@@ -277,3 +277,122 @@ export function lookupBarcode(rawCode: string): BarcodeScanMatch | null {
     hunterNotes: 'You can quickly log this item as a new find into your Sourcing Cart or Closet.',
   };
 }
+
+export interface LiveStoreLookupLinks {
+  ebaySold: string;
+  brickseekWalmart: string;
+  walmartSearch: string;
+  targetSearch: string;
+  homeDepotSearch: string;
+  lowesSearch: string;
+  googleShopping: string;
+  amazonSearch: string;
+}
+
+export function getLiveLookupLinks(upcOrSku: string, title?: string): LiveStoreLookupLinks {
+  const rawCode = encodeURIComponent(upcOrSku.trim());
+  return {
+    ebaySold: `https://www.ebay.com/sch/i.html?_nkw=${rawCode}&LH_Complete=1&LH_Sold=1`,
+    brickseekWalmart: `https://brickseek.com/walmart-inventory-checker/?sku=${rawCode}`,
+    walmartSearch: `https://www.walmart.com/search?q=${rawCode}`,
+    targetSearch: `https://www.target.com/s?searchTerm=${rawCode}`,
+    homeDepotSearch: `https://www.homedepot.com/s/${rawCode}`,
+    lowesSearch: `https://www.lowes.com/search?searchTerm=${rawCode}`,
+    googleShopping: `https://www.google.com/search?tbm=shop&q=${rawCode}`,
+    amazonSearch: `https://www.amazon.com/s?k=${rawCode}`,
+  };
+}
+
+export async function lookupBarcodeAsync(rawCode: string): Promise<BarcodeScanMatch> {
+  const local = lookupBarcode(rawCode);
+  if (local && local.matched) {
+    return local;
+  }
+
+  const code = rawCode.trim().replace(/\s+/g, '');
+  if (!code) {
+    return (
+      local || {
+        matched: false,
+        source: 'Generic Barcode',
+        title: 'Empty Barcode',
+        upc: '',
+        store: 'Unknown Retailer',
+        category: 'General Merchandise',
+        regularPrice: 0,
+        actualPrice: 0,
+        marketPrice: 0,
+        discountPct: 0,
+        isPenny: false,
+        statusBadge: 'Empty Code',
+        locationHint: '',
+        tagIntel: '',
+        hunterNotes: '',
+      }
+    );
+  }
+
+  // Live query to Open Food Facts / global open barcode catalog
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2600);
+    const res = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.status === 1 && data.product) {
+        const p = data.product;
+        const brand = p.brands || '';
+        const name = p.product_name || p.generic_name || 'Scanned Product';
+        const fullTitle = brand ? `${brand} ${name}` : name;
+        const category = p.categories ? p.categories.split(',')[0].trim() : 'Packaged Merchandise';
+
+        return {
+          matched: true,
+          source: 'Generic Barcode',
+          title: fullTitle,
+          upc: code,
+          store: 'Global UPC Registry Match',
+          category: category,
+          regularPrice: 0,
+          actualPrice: 0,
+          marketPrice: 0,
+          discountPct: 0,
+          isPenny: false,
+          statusBadge: 'Verified Live Product',
+          locationHint: 'Live product title verified via open global UPC registry.',
+          tagIntel: `Brand: ${brand || 'Unknown'} • Category: ${category}`,
+          hunterNotes:
+            'Verified real item! Click below to check live eBay sold comps, Walmart stock, or BrickSeek inventory.',
+        };
+      }
+    }
+  } catch (e) {
+    // Network or timeout, fallback gracefully
+  }
+
+  return (
+    local || {
+      matched: false,
+      source: 'Generic Barcode',
+      title: `Scanned Item (UPC: ${code})`,
+      upc: code,
+      store: 'Unknown Retailer',
+      category: 'Scanned Merchandise',
+      regularPrice: 0,
+      actualPrice: 0,
+      marketPrice: 0,
+      discountPct: 0,
+      isPenny: false,
+      statusBadge: 'Unindexed Barcode',
+      locationHint: 'Check shelf tag for price ending (.01, .02, .03, .00)',
+      tagIntel: 'Not in local penny list. Use live online comp buttons below.',
+      hunterNotes:
+        'Use the live direct lookup buttons below to check real eBay sold prices, BrickSeek, or the store app.',
+    }
+  );
+}

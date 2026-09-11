@@ -678,6 +678,21 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('autocouple')}
+            className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
+              activeTab === 'autocouple'
+                ? 'bg-gradient-to-r from-[#ffd60a] to-[#ff9f0a] text-black shadow-sm font-black'
+                : 'text-[#ffd60a] hover:bg-[#ffd60a]/10 border border-[#ffd60a]/30'
+            }`}
+          >
+            <Scissors className="w-3.5 h-3.5" />
+            <span>Auto-Coupler & Stacks</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/40 text-[#ffd60a] font-mono font-bold">
+              STACK
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('stores')}
             className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'stores'
@@ -805,10 +820,10 @@ export default function App() {
                 : 'text-[#f96302] hover:bg-[#f96302]/10'
             }`}
           >
-            <Tag className="w-3.5 h-3.5" />
-            <span>Home Depot Penny Deals</span>
+            <Flame className="w-3.5 h-3.5" />
+            <span>DealSoldier Loot & HD 1¢</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-[#ffd60a] font-mono font-black border border-[#ffd60a]/30">
-              1¢
+              BOT
             </span>
           </button>
           <button
@@ -870,6 +885,16 @@ export default function App() {
             <span>🍁 Watchlist</span>
           </button>
         </div>
+
+        {/* Auto-Coupon & Multi-Layer Stack Maximizer */}
+        {(activeTab === 'all' || activeTab === 'autocouple') && (
+          <AutoCouponMaximizer
+            zipCode={zipCode}
+            onLoadIntoCalculator={handleLoadFromCrossScan}
+            onAddToCart={handleAddToCartFromAutoCoupler}
+            onNotify={addToast}
+          />
+        )}
 
         {/* Individual Store Lookup & Scope Radar */}
         {(activeTab === 'all' || activeTab === 'stores') && (
@@ -1053,6 +1078,7 @@ export default function App() {
             onLoadSamples={handleLoadSamples}
             onNotify={addToast}
             onOpenReceiptScanner={() => setIsReceiptModalOpen(true)}
+            onAutoCoupleCart={handleAutoCoupleEntireCart}
           />
         )}
 

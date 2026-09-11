@@ -16,6 +16,9 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
+  ShieldAlert,
+  Info,
 } from 'lucide-react';
 import { DGPennyItem } from '../types';
 import { DG_TAG_GUIDE, DG_PENNY_RULES, DEFAULT_DG_PENNY_DEALS } from '../data/dgPennyDeals';
@@ -51,6 +54,7 @@ export const DGPennyHub: React.FC<DGPennyHubProps> = ({
   const [selectedTag, setSelectedTag] = useState<string>('All');
   const [showTagGuide, setShowTagGuide] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showTroubleshooter, setShowTroubleshooter] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [copiedUpc, setCopiedUpc] = useState<string | null>(null);
 
@@ -199,21 +203,22 @@ export const DGPennyHub: React.FC<DGPennyHubProps> = ({
       </div>
 
       {/* Guide & Rules Expandable Tabs */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
         <button
           type="button"
           onClick={() => {
             setShowTagGuide(!showTagGuide);
-            if (showRules) setShowRules(false);
+            setShowRules(false);
+            setShowTroubleshooter(false);
           }}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between border transition-all ${
+          className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between border transition-all cursor-pointer ${
             showTagGuide
               ? 'bg-[#ff9800]/15 text-[#ff9800] border-[#ff9800]'
               : 'bg-[#222227] text-[#92929d] border-[#2c2c35] hover:text-[#f5f5f7]'
           }`}
         >
           <span className="flex items-center gap-1.5 truncate">
-            <Tag className="w-3.5 h-3.5 text-[#ff9800]" /> DG Tag Decoder Guide
+            <Tag className="w-3.5 h-3.5 text-[#ff9800]" /> Tag Decoder
           </span>
           {showTagGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
@@ -222,9 +227,10 @@ export const DGPennyHub: React.FC<DGPennyHubProps> = ({
           type="button"
           onClick={() => {
             setShowRules(!showRules);
-            if (showTagGuide) setShowTagGuide(false);
+            setShowTagGuide(false);
+            setShowTroubleshooter(false);
           }}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between border transition-all ${
+          className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between border transition-all cursor-pointer ${
             showRules
               ? 'bg-[#ff9800]/15 text-[#ff9800] border-[#ff9800]'
               : 'bg-[#222227] text-[#92929d] border-[#2c2c35] hover:text-[#f5f5f7]'
@@ -234,6 +240,25 @@ export const DGPennyHub: React.FC<DGPennyHubProps> = ({
             <BookOpen className="w-3.5 h-3.5 text-[#34c759]" /> 5 Golden Rules
           </span>
           {showRules ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setShowTroubleshooter(!showTroubleshooter);
+            setShowTagGuide(false);
+            setShowRules(false);
+          }}
+          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between border transition-all cursor-pointer ${
+            showTroubleshooter
+              ? 'bg-[#ff3b30]/20 text-[#ff453a] border-[#ff453a]'
+              : 'bg-[#222227] text-[#ffd60a] border-[#ffd60a]/40 hover:bg-[#2c2c35]'
+          }`}
+        >
+          <span className="flex items-center gap-1.5 truncate">
+            <AlertTriangle className="w-3.5 h-3.5 text-[#ff453a]" /> Why It Failed Yesterday?
+          </span>
+          {showTroubleshooter ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>
 
@@ -273,6 +298,70 @@ export const DGPennyHub: React.FC<DGPennyHubProps> = ({
                 <p className="text-[11px] text-[#92929d] leading-relaxed m-0">{rule.description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Why It Failed Yesterday Diagnostic */}
+      {showTroubleshooter && (
+        <div className="bg-[#18181c] p-4 rounded-xl mb-3 border-2 border-[#ff3b30]/60 text-xs space-y-3 shadow-lg">
+          <div className="flex items-center gap-2 border-b border-[#2c2c35] pb-2">
+            <ShieldAlert className="w-5 h-5 text-[#ff453a] shrink-0" />
+            <div>
+              <h4 className="font-black text-[#f5f5f7] text-sm m-0">
+                Why Dollar General Penny Shopping Didn't Work Yesterday
+              </h4>
+              <span className="text-[11px] text-[#92929d]">
+                The 5 in-store realities that explain why items ring up full price or shelves are bare
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="p-2.5 bg-[#222227] rounded-lg border border-[#2c2c35]">
+              <div className="font-bold text-[#ffd60a] flex items-center gap-1.5 mb-1">
+                <span>1. The Monday Night "Pull Sheet" (Employees Beat You to the Shelf)</span>
+              </div>
+              <p className="text-[11px] text-[#92929d] leading-relaxed m-0">
+                Corporate sends store managers a printout list every Monday afternoon. Staff are mandated to pull every penny item from the sales floor <strong className="text-[#f5f5f7]">before 8:00 AM Tuesday morning</strong> and box them up for disposal. You only find penny deals if employees were understaffed or overlooked items hidden in top "sky shelves" or back behind other inventory.
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-[#222227] rounded-lg border border-[#2c2c35]">
+              <div className="font-bold text-[#ffd60a] flex items-center gap-1.5 mb-1">
+                <span>2. The Dollar General App Anti-Penny Update</span>
+              </div>
+              <p className="text-[11px] text-[#92929d] leading-relaxed m-0">
+                If you scanned barcodes with the DG phone app yesterday and saw full price or "0.00 / Item Not Sold": <strong className="text-[#f5f5f7]">The DG app intentionally hides 1¢ prices</strong> to prevent hunters from clearing shelves. The actual POS register or Self-Checkout (SCO) is the only machine with the real 1¢ markdown database.
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-[#222227] rounded-lg border border-[#2c2c35]">
+              <div className="font-bold text-[#ffd60a] flex items-center gap-1.5 mb-1">
+                <span>3. One-Digit UPC Mismatch (Wrong Scent / Size)</span>
+              </div>
+              <p className="text-[11px] text-[#92929d] leading-relaxed m-0">
+                Only the exact 12-digit UPC pennies out. For example, Lavender scented 14oz may be $0.01, but Meadow Breeze 14oz sitting right next to it is full price $8.00. Check all 12 digits of the barcode number before heading to register.
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-[#222227] rounded-lg border border-[#2c2c35]">
+              <div className="font-bold text-[#ffd60a] flex items-center gap-1.5 mb-1">
+                <span>4. Cashier Confiscation at the Register</span>
+              </div>
+              <p className="text-[11px] text-[#92929d] leading-relaxed m-0">
+                If an employee scanned your items and they showed $0.01, they may have stated "We aren't allowed to sell these." Corporate SOP says they should sell it if it's on the floor, but many store managers reprimand employees if they let pennies leave. <strong className="text-[#30d158]">Pro tip: Always use Self-Checkout (SCO)</strong> when hunting penny items.
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-[#222227] rounded-lg border border-[#2c2c35]">
+              <div className="font-bold text-[#ffd60a] flex items-center gap-1.5 mb-1">
+                <span>5. Store Excluded from Tuesday Drop (Remodel / DG Market)</span>
+              </div>
+              <p className="text-[11px] text-[#92929d] leading-relaxed m-0">
+                DG stores currently undergoing a remodel or converted to "DG Market" formats do not follow the standard Tuesday penny drop schedule. Their clearance drops on random manager-assigned dates.
+              </p>
+            </div>
           </div>
         </div>
       )}

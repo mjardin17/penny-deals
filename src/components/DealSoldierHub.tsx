@@ -28,6 +28,7 @@ import {
   X,
   Check,
   Zap,
+  Cpu,
 } from 'lucide-react';
 import { DealSoldierItem, ClosetInventoryItem, StoreLocationInventory } from '../types';
 import {
@@ -36,6 +37,7 @@ import {
   HD_CLEARANCE_RULES,
 } from '../data/defaultDealSoldierDeals';
 import { PokemonTcgRadar } from './PokemonTcgRadar';
+import { LootLocatorEngine } from './LootLocatorEngine';
 
 interface DealSoldierHubProps {
   zipCode: string;
@@ -86,8 +88,10 @@ export const DealSoldierHub: React.FC<DealSoldierHubProps> = ({
     return DEFAULT_CLOSET_INVENTORY;
   });
 
-  // Active view sub-mode: 'live-deals', 'pokemon-radar', or 'my-closet'
-  const [activeSubMode, setActiveSubMode] = useState<'live-deals' | 'pokemon-radar' | 'my-closet'>('live-deals');
+  // Active view sub-mode: 'live-deals', 'loot-locator', 'pokemon-radar', or 'my-closet'
+  const [activeSubMode, setActiveSubMode] = useState<
+    'live-deals' | 'loot-locator' | 'pokemon-radar' | 'my-closet'
+  >('live-deals');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -401,7 +405,7 @@ export const DealSoldierHub: React.FC<DealSoldierHubProps> = ({
           </div>
         </div>
 
-        {/* Mode Switch Tabs: Live Clearance Feeds vs Pokemon Drops vs My Sourcing Closet */}
+        {/* Mode Switch Tabs: Live Clearance Feeds vs Loot Locator Bot vs Pokemon Drops vs My Sourcing Closet */}
         <div className="mt-4 pt-3 border-t border-[#2c2c35]/60 flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
           <button
             type="button"
@@ -414,6 +418,19 @@ export const DealSoldierHub: React.FC<DealSoldierHubProps> = ({
           >
             <Flame className="w-3.5 h-3.5" />
             <span>Penny Live & Closest Store Feed ({deals.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubMode('loot-locator')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+              activeSubMode === 'loot-locator'
+                ? 'bg-gradient-to-r from-[#ff9800] to-[#f96302] text-black shadow-xs font-black'
+                : 'bg-[#222227] text-[#ff9800] hover:bg-[#ff9800]/10 border border-[#ff9800]/30'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Loot Locator & Bot Radar (DealSoldier Tech)</span>
           </button>
 
           <button
@@ -1045,6 +1062,48 @@ export const DealSoldierHub: React.FC<DealSoldierHubProps> = ({
                     verifiedDate: 'Verified today',
                     isPenny: false,
                     hunterNotes: deal.notes || 'Pokémon / TCG Drop Radar deal.',
+                  });
+                }
+              : undefined
+          }
+          onNotify={onNotify}
+        />
+      )}
+
+      {/* SUB-VIEW 4: LOOT LOCATOR & REVERSE-ENGINEERED STORE INVENTORY BOT */}
+      {activeSubMode === 'loot-locator' && (
+        <LootLocatorEngine
+          zipCode={zipCode}
+          onLoadIntoCalculator={onLoadIntoCalculator}
+          onAddToCart={
+            onAddToCart
+              ? (deal: any) => {
+                  onAddToCart({
+                    id: `loot-${Date.now()}`,
+                    title: deal.title,
+                    sku: 'LOOT-' + Date.now().toString().slice(-6),
+                    store: deal.store || 'Home Depot',
+                    category: deal.category || 'Clearance',
+                    price: deal.buyPrice,
+                    origPrice: deal.sellPrice,
+                    discountPct: Math.round(((deal.sellPrice - deal.buyPrice) / deal.sellPrice) * 100),
+                    markdownCode: 'Loot Locator Clearance',
+                    estResellPrice: deal.sellPrice,
+                    closestStore: {
+                      storeName: `${deal.store} Store`,
+                      storeNumber: 'Local',
+                      address: `Near ZIP ${zipCode}`,
+                      distanceMiles: 1.5,
+                      stockQuantity: 2,
+                      stockStatus: 'In Stock',
+                      aisleBay: 'Clearance Endcap',
+                      lastVerifiedByHunter: 'Loot Locator Engine',
+                    },
+                    otherNearbyStores: [],
+                    aisleBayHint: 'Clearance Endcap / Sky Shelf',
+                    verifiedDate: 'Verified today',
+                    isPenny: deal.buyPrice <= 0.01,
+                    hunterNotes: deal.notes || 'Loot Locator Deal',
                   });
                 }
               : undefined

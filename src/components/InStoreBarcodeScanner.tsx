@@ -29,7 +29,7 @@ import {
   Navigation,
 } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { lookupBarcode, BarcodeScanMatch } from '../utils/barcodeLookup';
+import { lookupBarcode, lookupBarcodeAsync, getLiveLookupLinks, BarcodeScanMatch } from '../utils/barcodeLookup';
 import { generateCrossStoreComparison } from '../utils/crossStoreScanner';
 import { soundFx } from '../utils/audioFeedback';
 
@@ -107,28 +107,41 @@ export const InStoreBarcodeScanner: React.FC<InStoreBarcodeScannerProps> = ({
     }
   };
 
-  const handleBarcodeIdentified = (code: string) => {
+  const handleBarcodeIdentified = async (code: string) => {
     const cleanCode = code.trim();
     if (!cleanCode) return;
 
-    const result = lookupBarcode(cleanCode);
-    setScanResult(result);
+    // Immediate local lookup for ultra-fast response
+    const quickResult = lookupBarcode(cleanCode);
+    setScanResult(quickResult);
 
-    if (result && result.matched) {
-      if (result.actualPrice <= 0.04) {
+    if (quickResult && quickResult.matched) {
+      if (quickResult.actualPrice <= 0.04) {
         soundFx.playPennyJackpot();
-      } else if (result.marketPrice - result.actualPrice > 25) {
+      } else if (quickResult.marketPrice - quickResult.actualPrice > 25) {
         soundFx.playHighProfitChime();
       } else {
         soundFx.playStandardScan();
       }
 
       onNotify(
-        `Scanned: ${result.title.substring(0, 26)}... (${result.store})`,
+        `Scanned: ${quickResult.title.substring(0, 26)}... (${quickResult.store})`,
         'success'
       );
-    } else {
-      soundFx.playStandardScan();
+      return;
+    }
+
+    // If not in local pre-loaded deal archives, query open global UPC registry
+    soundFx.playStandardScan();
+    try {
+      const asyncResult = await lookupBarcodeAsync(cleanCode);
+      setScanResult(asyncResult);
+      if (asyncResult.matched) {
+        onNotify(`Live UPC Matched: ${asyncResult.title.substring(0, 28)}`, 'success');
+      } else {
+        onNotify(`Barcode Scanned: ${cleanCode}`, 'info');
+      }
+    } catch {
       onNotify(`Barcode Scanned: ${cleanCode}`, 'info');
     }
   };
@@ -161,7 +174,11 @@ export const InStoreBarcodeScanner: React.FC<InStoreBarcodeScannerProps> = ({
         { facingMode },
         {
           fps: 15,
-          qrbox: { width: 280, height: 160 },
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const w = Math.floor(Math.min(viewfinderWidth * 0.88, 320));
+            const h = Math.floor(Math.min(viewfinderHeight * 0.6, 200));
+            return { width: Math.max(w, 140), height: Math.max(h, 80) };
+          },
           aspectRatio: 1.0,
         },
         (decodedText) => {
@@ -378,7 +395,7 @@ export const InStoreBarcodeScanner: React.FC<InStoreBarcodeScannerProps> = ({
                 {cameraError && (
                   <div className="p-6 text-center max-w-sm space-y-2">
                     <AlertTriangle className="w-8 h-8 text-[#ffd60a] mx-auto opacity-80" />
-                    <h4 className="text-xs font-bold text-[#f5f5f7]">Camera Scanner Preview</h4>
+                    <h4 className="text-xs font-bold text-[#f5f5f7]">Camera Access Needed</h4>
                     <p className="text-[11px] text-[#92929d] leading-relaxed">
                       {cameraError}
                     </p>
@@ -391,6 +408,15 @@ export const InStoreBarcodeScanner: React.FC<InStoreBarcodeScannerProps> = ({
                         <RefreshCw className="w-3.5 h-3.5 text-[#ffd60a]" />
                         <span>Retry Camera</span>
                       </button>
+                      <a
+                        href={window.location.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-xl bg-[#0a84ff]/20 hover:bg-[#0a84ff]/30 text-[#0a84ff] border border-[#0a84ff]/40 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open in New Tab (Enable Camera)</span>
+                      </a>
                       <button
                         type="button"
                         onClick={() => setActiveTab('manual')}
@@ -780,32 +806,105 @@ export const InStoreBarcodeScanner: React.FC<InStoreBarcodeScannerProps> = ({
                 );
               })()}
 
+              {/* Live Online Lookups & Real Market Data */}
+              {(() => {
+                const liveLinks = getLiveLookupLinks(scanResult.upc, scanResult.title);
+                return (
+                  <div className="p-3 bg-[#121215] border border-[#ffd60a]/30 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-black text-[#ffd60a] uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> Live Store & Market Comps (Real-Time)
+                      </span>
+                      <span className="text-[10px] text-[#92929d]">1-Tap Direct Deep-Links</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <a
+                        href={liveLinks.ebaySold}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-[#30d158]/20 hover:bg-[#30d158]/30 text-[#30d158] border border-[#30d158]/40 text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <span>eBay Sold Comps</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+
+                      <a
+                        href={liveLinks.brickseekWalmart}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-[#ffd60a]/15 hover:bg-[#ffd60a]/25 text-[#ffd60a] border border-[#ffd60a]/30 text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <span>BrickSeek Stock Check</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+
+                      <a
+                        href={liveLinks.walmartSearch}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-[#0a84ff]/15 hover:bg-[#0a84ff]/25 text-[#0a84ff] border border-[#0a84ff]/30 text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <span>Walmart App</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+
+                      <a
+                        href={liveLinks.targetSearch}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-[#ff3b30]/15 hover:bg-[#ff3b30]/25 text-[#ff453a] border border-[#ff3b30]/30 text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <span>Target DPCI</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+
+                      <a
+                        href={liveLinks.homeDepotSearch}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-[#ff9f0a]/15 hover:bg-[#ff9f0a]/25 text-[#ff9f0a] border border-[#ff9f0a]/30 text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <span>Home Depot</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+
+                      <a
+                        href={liveLinks.googleShopping}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-[#222227] hover:bg-[#2c2c35] text-[#f5f5f7] border border-[#2c2c35] text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <span>Google Lens</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+
+                      {scanResult.source === 'Pokemon / TCG' && (
+                        <a
+                          href={`https://www.tcgplayer.com/search/all/product?q=${encodeURIComponent(scanResult.title)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 rounded-lg bg-[#222227] hover:bg-[#2c2c35] text-xs text-[#ffd60a] border border-[#ffd60a]/30 font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <span>TCGPlayer Comps</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Clearance Reality Explanation Box */}
+                    <div className="text-[10px] text-[#92929d] bg-[#18181c] p-2 rounded-lg border border-[#2c2c35] flex items-start gap-1.5 leading-relaxed">
+                      <Info className="w-3.5 h-3.5 text-[#ffd60a] shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-[#f5f5f7]">Clearance Reality:</strong> Dollar General, Home Depot & Walmart flag 1¢ penny items and hidden markdowns for disposal—their customer apps intentionally hide them or list full MSRP. Physical barcode scans and sold comps are how arbiters verify true liquidation.
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Action Buttons */}
               <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <a
-                    href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(scanResult.upc)}&LH_Sold=1&LH_Complete=1`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2.5 py-1.5 rounded-lg bg-[#222227] hover:bg-[#2c2c35] text-xs text-[#92929d] hover:text-[#f5f5f7] border border-[#2c2c35] font-semibold flex items-center gap-1 transition-colors"
-                  >
-                    <span>eBay Solds</span>
-                    <ExternalLink className="w-3 h-3 text-[#92929d]" />
-                  </a>
-
-                  {scanResult.source === 'Pokemon / TCG' && (
-                    <a
-                      href={`https://www.tcgplayer.com/search/all/product?q=${encodeURIComponent(scanResult.title)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-2.5 py-1.5 rounded-lg bg-[#222227] hover:bg-[#2c2c35] text-xs text-[#ffd60a] border border-[#ffd60a]/30 font-semibold flex items-center gap-1 transition-colors"
-                    >
-                      <span>TCGPlayer Comps</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-
                 <div className="flex items-center gap-2">
                   {onOpenDiagnostic && (
                     <button
