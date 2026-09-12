@@ -1,28 +1,56 @@
 import { PokemonDropItem } from '../types';
 
+export interface StoreDeliveryPredictor {
+  id: string;
+  retailer: string;
+  vendor: string;
+  vendorType: 'DSD (Direct Store Delivery)' | 'DC Warehouse Freight' | 'FedEx/UPS Courier';
+  deliveryDays: string[];
+  exactWindow: string;
+  dockCheckInTime: string;
+  floorStagingTime: string;
+  todayProbability: Record<string, { score: number; label: 'Very High' | 'High' | 'Moderate' | 'Low'; note: string }>;
+  primaryStashSpot: string;
+  backupStashSpots: string[];
+  vendorBoxIdentifier: string;
+  cartType: string;
+  dialogueScript: string;
+  purchaseLimits: string;
+  hotProducts: string;
+  color: string;
+  recentSightings: {
+    storeName: string;
+    distanceMiles: number;
+    timeAgo: string;
+    status: 'In-Store Now' | 'Fresh Stock on Shelf' | 'Staged in Back' | 'Cleared Out';
+    repActivity: string;
+    verified: boolean;
+  }[];
+}
+
 export const VENDOR_RESTOCK_SCHEDULES = [
   {
     retailer: 'Walmart',
     vendor: 'MJ Holding',
-    window: 'Thursday & Friday (8:00 AM – 12:00 PM)',
+    window: 'Thursday & Friday (9:30 AM – 1:30 PM)',
     hotProducts: '151 Booster Bundles, Prismatic Evolutions, Mystery Power Boxes, Tins',
     huntingStrategy:
-      'MJ Holding reps arrive early. Check the Front Register Card Wall (usually Aisle 4/5) first. If empty, check the Electronics glass cabinet or behind Customer Service desk—many stores now hold TCG inventory behind the counter to deter theft.',
+      'MJ Holding reps arrive between 9:30 AM and 11:00 AM. Check the Front Register Card Wall (usually Aisle 3/4) first. If empty, check the Electronics glass cabinet or behind Customer Service desk—many stores now hold TCG inventory behind the counter to deter cart sweeps.',
     color: '#0a84ff',
   },
   {
     retailer: 'Target',
     vendor: 'Excell Marketing',
-    window: 'Tuesday, Wednesday & Friday (8:00 AM – 10:30 AM)',
-    hotProducts: 'Elite Trainer Boxes, 151 Bundles, Target-Exclusive Tins, Mini Tins',
+    window: 'Tuesday, Thursday & Friday (8:00 AM – 11:00 AM)',
+    hotProducts: 'Elite Trainer Boxes, 151 Bundles, Prismatic Evolutions, Target-Exclusive Tins',
     huntingStrategy:
-      'Excell reps stock between 8 AM and 10 AM. Most Targets enforce a strict 2-item or 3-item limit per customer. Look at the front checkout lanes and the secondary toy aisle endcap. Also scan clearance endcaps for repacks.',
+      'Excell reps stock right after store opening (8 AM - 10 AM). Most Targets enforce a strict 2-item or 3-item limit per customer. Look behind the Guest Services counter (ask politely) and at Front Register Lane 1. Also scan toy clearance endcaps for repack markdowns.',
     color: '#ff3b30',
   },
   {
     retailer: 'Costco & Sam’s Club',
-    vendor: 'Direct Distributor',
-    window: 'Thursday / Friday / Saturday Morning Freight',
+    vendor: 'Direct Warehouse Distributor',
+    window: 'Thursday PM Pallet Drop / Friday & Saturday (9:30 AM)',
     hotProducts: 'Crown Zenith Sea & Sky (14 packs), 5-Tin Holiday Bundles, Pencil Tins',
     huntingStrategy:
       'Check the center seasonal toy pallets. Costco bundles often offer sub-$3 per pack pricing ($39.99 for 14 packs), producing instant $30-$45 resale profit margins on TCGPlayer/eBay.',
@@ -30,12 +58,337 @@ export const VENDOR_RESTOCK_SCHEDULES = [
   },
   {
     retailer: 'Dollar General',
-    vendor: 'Store Direct / Clip Strips',
-    window: 'Tuesday & Thursday Freight Unload',
-    hotProducts: '$1.25 Booster Packs, 3-Card Blisters, Mini Tins',
+    vendor: 'MJ Holding / Store Direct',
+    window: 'Tuesday (with Penny Freight) & Thursday (8:00 AM – 10:30 AM)',
+    hotProducts: '$1.25 Booster Packs (Silver Tempest/Lost Origin), 3-Card Blisters, Mini Tins',
     huntingStrategy:
       'Check hanging clip-strips at every checkout register, the seasonal toy aisle endcaps, and the bottom shelf behind board games. Look out for $1.25 Silver Tempest and Lost Origin packs.',
     color: '#ffd60a',
+  },
+  {
+    retailer: 'Best Buy',
+    vendor: 'Direct DC / Excell Marketing',
+    window: 'Friday Morning (10:00 AM Open)',
+    hotProducts: 'Booster Bundles, Specialty ETBs, Premium Collection Boxes',
+    huntingStrategy:
+      'Stocked right as doors unlock at 10:00 AM on Fridays. Usually located on the wire display racks immediately inside the main checkout queue line or behind customer service pickup.',
+    color: '#0046be',
+  },
+  {
+    retailer: 'Barnes & Noble',
+    vendor: 'MJ Holding Direct',
+    window: 'Friday Morning (10:00 AM – 12:00 PM)',
+    hotProducts: '151 Bundles, Sleeved Boosters, Collector Tins, Manga Promos',
+    huntingStrategy:
+      'Always kept behind the main cashier counter. Must ask cashier directly if they received today’s MJ Holding trading card delivery. Limit 2 per customer strictly enforced.',
+    color: '#285943',
+  },
+  {
+    retailer: 'GameStop',
+    vendor: 'FedEx / Corporate Freight',
+    window: 'Tuesday, Wednesday & Friday (11:00 AM – 2:00 PM)',
+    hotProducts: 'Exclusive ETBs, Booster Bundles, Sleeved Boosters',
+    huntingStrategy:
+      'Shipments arrive via FedEx midday. Pro Members receive first priority. Ask the store associate: "Did the afternoon Pokémon freight box check in yet?"',
+    color: '#e02424',
+  },
+];
+
+export const STORE_DELIVERY_PREDICTOR_MATRIX: StoreDeliveryPredictor[] = [
+  {
+    id: 'pred-walmart',
+    retailer: 'Walmart Supercenter',
+    vendor: 'MJ Holding Company',
+    vendorType: 'DSD (Direct Store Delivery)',
+    deliveryDays: ['Thursday', 'Friday'],
+    exactWindow: '9:30 AM – 1:30 PM',
+    dockCheckInTime: '9:15 AM – 9:45 AM (Receiving Back Dock)',
+    floorStagingTime: '10:15 AM – 11:30 AM (Front Registers Wall)',
+    todayProbability: {
+      Monday: { score: 15, label: 'Low', note: 'Weekend leftover stock only; minimal DSD activity.' },
+      Tuesday: { score: 25, label: 'Low', note: 'Select rural stores only; general freight day.' },
+      Wednesday: { score: 45, label: 'Moderate', note: 'Early pre-staging at high-volume 24hr stores.' },
+      Thursday: { score: 88, label: 'Very High', note: 'Primary restock wave 1. High probability of 151 and ETBs.' },
+      Friday: { score: 96, label: 'Very High', note: 'Peak restock day nationwide. Reps stock before weekend rush.' },
+      Saturday: { score: 30, label: 'Low', note: 'Residual morning restocks if vendor was delayed Friday.' },
+      Sunday: { score: 10, label: 'Low', note: 'No DSD vendor deliveries on Sunday.' },
+    },
+    primaryStashSpot: 'Front Checkout Lanes 3 & 4 (MJ Holding Trading Card Hanging Display Wall)',
+    backupStashSpots: [
+      'Customer Service Counter (Anti-theft holding drawer - ask associate)',
+      'Electronics Locked Glass Case (Bottom tier behind Nintendo Switch games)',
+      'Overhead Top-Stock brown box marked "MJ HOLDING TRADING CARDS"',
+    ],
+    vendorBoxIdentifier: 'Brown heavy cardboard boxes sealed with RED tape stamped "MJ HOLDING DSD"',
+    cartType: 'Steel U-Boat or aluminum flatbed rolling cart with 3-5 brown cartons',
+    dialogueScript: '"Hi! Did the MJ Holding vendor finish stocking the front trading card wall today, or is the cart still being checked in at the back receiving dock?"',
+    purchaseLimits: '2 items per customer strictly enforced at self-checkout',
+    hotProducts: '151 Booster Bundles ($26.94), Prismatic Evolutions ETBs, Mystery Power Boxes, Tins',
+    color: '#0a84ff',
+    recentSightings: [
+      {
+        storeName: 'Walmart Supercenter #1909',
+        distanceMiles: 2.1,
+        timeAgo: '18 mins ago',
+        status: 'In-Store Now',
+        repActivity: 'MJ Holding rep actively filling pegs with 151 Booster Bundles at Lane 3',
+        verified: true,
+      },
+      {
+        storeName: 'Walmart Supercenter #3421',
+        distanceMiles: 4.8,
+        timeAgo: '1 hour ago',
+        status: 'Fresh Stock on Shelf',
+        repActivity: 'Full pegs of Paldean Fates and Charizard ex Collection Boxes spotted',
+        verified: true,
+      },
+    ],
+  },
+  {
+    id: 'pred-target',
+    retailer: 'Target',
+    vendor: 'Excell Marketing',
+    vendorType: 'DSD (Direct Store Delivery)',
+    deliveryDays: ['Tuesday', 'Thursday', 'Friday'],
+    exactWindow: '8:00 AM – 11:30 AM',
+    dockCheckInTime: '7:45 AM – 8:15 AM (Dock receiving scan)',
+    floorStagingTime: '8:30 AM – 10:00 AM (Guest services & Lane 1)',
+    todayProbability: {
+      Monday: { score: 20, label: 'Low', note: 'Toy reset consolidation; very rare vendor visits.' },
+      Tuesday: { score: 75, label: 'High', note: 'Midweek restock run for suburban Target stores.' },
+      Wednesday: { score: 40, label: 'Moderate', note: 'Occasional restock if Tuesday shipment was split.' },
+      Thursday: { score: 85, label: 'Very High', note: 'Aligns with Target Thursday Toy markdown schedules.' },
+      Friday: { score: 94, label: 'Very High', note: 'Prime release day & weekly Excell mega-drop.' },
+      Saturday: { score: 25, label: 'Low', note: 'Morning shelf picks; no new distributor delivery.' },
+      Sunday: { score: 10, label: 'Low', note: 'No Excell vendor deliveries on Sunday.' },
+    },
+    primaryStashSpot: 'Behind Guest Services Counter (Customer Service desk - held to prevent shelf clearing)',
+    backupStashSpots: [
+      'Front Checkout Lane 1 (Collector trading card endcap)',
+      'Toy Aisle Collector Section (Near Funko Pop and action figures)',
+      'Electronics Security Staging Cage (Locked glass cabinets)',
+    ],
+    vendorBoxIdentifier: 'White and kraft boxes with green or black "EXCELL MARKETING DSD" labels',
+    cartType: 'Target red two-tier rolling cart or gray plastic staging tote',
+    dialogueScript: '"Hello! Could you check behind the Guest Services counter to see if today’s Excell Pokémon restock has been checked into the drawer yet?"',
+    purchaseLimits: 'Strict 2-item or 3-item limit per guest (hard register lockout)',
+    hotProducts: 'Prismatic Evolutions ETBs ($54.99), 151 Bundles, Target-Exclusive Tins, Mini Tins',
+    color: '#ff3b30',
+    recentSightings: [
+      {
+        storeName: 'Target Store #1104',
+        distanceMiles: 3.4,
+        timeAgo: '25 mins ago',
+        status: 'Fresh Stock on Shelf',
+        repActivity: 'Guest Services has 12 Prismatic Evolutions ETBs behind counter. Limit 2 enforced.',
+        verified: true,
+      },
+    ],
+  },
+  {
+    id: 'pred-dg',
+    retailer: 'Dollar General',
+    vendor: 'MJ Holding / Dry Freight',
+    vendorType: 'DC Warehouse Freight',
+    deliveryDays: ['Tuesday', 'Thursday'],
+    exactWindow: '8:00 AM – 10:30 AM',
+    dockCheckInTime: '7:00 AM – 8:00 AM (Weekly delivery truck roll)',
+    floorStagingTime: '8:00 AM – 9:30 AM (Register strip clips & toy aisle)',
+    todayProbability: {
+      Monday: { score: 20, label: 'Low', note: 'Inventory staging day.' },
+      Tuesday: { score: 92, label: 'Very High', note: '🔥 TUESDAY PENNY FREIGHT DAY: Best day for $1.25 packs.' },
+      Wednesday: { score: 35, label: 'Moderate', note: 'Stocking remainder of Tuesday roll.' },
+      Thursday: { score: 80, label: 'High', note: 'Secondary weekly dry-goods replenishment truck.' },
+      Friday: { score: 40, label: 'Moderate', note: 'Weekend prep stock.' },
+      Saturday: { score: 20, label: 'Low', note: 'No scheduled DSD freight.' },
+      Sunday: { score: 10, label: 'Low', note: 'No deliveries.' },
+    },
+    primaryStashSpot: 'Front Checkout Hanging Metal Clip-Strips (Impulse buy strips beside cash registers)',
+    backupStashSpots: [
+      'Toy Aisle Pegboard Hook #3/4 (Hanging booster blister packs)',
+      'Bottom wire basket under seasonal greeting cards / stationery',
+      'Behind register counter on cigarette rack overhead shelf',
+    ],
+    vendorBoxIdentifier: 'Yellow-tagged Dollar General internal tote boxes marked "TOYS / IMPULSE"',
+    cartType: 'Roll-tainer metal cage cart or blue plastic tote bins',
+    dialogueScript: '"Hi! Did the morning freight shipment bring in any new Pokémon booster packs or blister tins for the register clip strips today?"',
+    purchaseLimits: 'No purchase limits; buy all $1.25 packs available',
+    hotProducts: '$1.25 Foil Booster Packs (Silver Tempest, Lost Origin), 3-Card Blisters, Mini Tins',
+    color: '#ffd60a',
+    recentSightings: [
+      {
+        storeName: 'Dollar General #14209',
+        distanceMiles: 0.9,
+        timeAgo: '45 mins ago',
+        status: 'Fresh Stock on Shelf',
+        repActivity: 'Front register clip strips loaded with fresh $1.25 Silver Tempest packs',
+        verified: true,
+      },
+    ],
+  },
+  {
+    id: 'pred-bestbuy',
+    retailer: 'Best Buy',
+    vendor: 'Direct DC / Excell Marketing',
+    vendorType: 'DSD (Direct Store Delivery)',
+    deliveryDays: ['Friday'],
+    exactWindow: '10:00 AM – 1:00 PM',
+    dockCheckInTime: '8:30 AM – 9:30 AM (Morning carrier dock check-in)',
+    floorStagingTime: '10:00 AM Sharp (Doors open for customers)',
+    todayProbability: {
+      Monday: { score: 15, label: 'Low', note: 'Online order returns only.' },
+      Tuesday: { score: 25, label: 'Low', note: 'Occasional midweek replenishment.' },
+      Wednesday: { score: 30, label: 'Low', note: 'Midweek hardware delivery.' },
+      Thursday: { score: 45, label: 'Moderate', note: 'Warehouse truck unloads for Friday morning.' },
+      Friday: { score: 95, label: 'Very High', note: '🔥 FRIDAY 10 AM DROP: Best Buy standard weekly TCG release day.' },
+      Saturday: { score: 30, label: 'Low', note: 'Leftovers from Friday morning.' },
+      Sunday: { score: 10, label: 'Low', note: 'No restocks.' },
+    },
+    primaryStashSpot: 'Front Checkout Queue Wire Racks (Snake line leading to cash registers)',
+    backupStashSpots: [
+      'Customer Service / Online Order Pickup Counter (Behind glass counter)',
+      'Video Games Section Endcap (Near Nintendo Switch display)',
+      'Store Mobile Department Display Bins',
+    ],
+    vendorBoxIdentifier: 'Best Buy brown cartons marked "GAMING / TCG MERCHANDISE"',
+    cartType: 'Black plastic two-shelf stock cart',
+    dialogueScript: '"Good morning! Did the front checkout queue get restocked with the new Pokémon booster bundles or ETBs from today’s delivery?"',
+    purchaseLimits: '1-2 per customer or Best Buy Total member reserve',
+    hotProducts: 'Booster Bundles ($26.99), Special ETBs, Ultra-Premium Collections',
+    color: '#0046be',
+    recentSightings: [
+      {
+        storeName: 'Best Buy Store #481',
+        distanceMiles: 4.1,
+        timeAgo: '2 hours ago',
+        status: 'Fresh Stock on Shelf',
+        repActivity: 'Checkout queue wire rack has 8 Paldean Fates bundles in stock',
+        verified: true,
+      },
+    ],
+  },
+  {
+    id: 'pred-bn',
+    retailer: 'Barnes & Noble',
+    vendor: 'MJ Holding Direct',
+    vendorType: 'DSD (Direct Store Delivery)',
+    deliveryDays: ['Friday'],
+    exactWindow: '10:00 AM – 12:30 PM',
+    dockCheckInTime: '9:30 AM – 10:00 AM',
+    floorStagingTime: '10:00 AM – 11:00 AM (Behind Cash Wrap)',
+    todayProbability: {
+      Monday: { score: 10, label: 'Low', note: 'No delivery.' },
+      Tuesday: { score: 20, label: 'Low', note: 'Book deliveries only.' },
+      Wednesday: { score: 25, label: 'Low', note: 'General book replenishment.' },
+      Thursday: { score: 40, label: 'Moderate', note: 'Occasional early parcel drop.' },
+      Friday: { score: 91, label: 'Very High', note: 'Dedicated MJ Holding weekly delivery window.' },
+      Saturday: { score: 30, label: 'Low', note: 'Remaining stock behind counter.' },
+      Sunday: { score: 10, label: 'Low', note: 'No deliveries.' },
+    },
+    primaryStashSpot: 'Directly Behind Main Cash Wrap Registers (Must request from cashier)',
+    backupStashSpots: [
+      'Manga & Graphic Novel Aisle Display Table',
+      'Kids & Toys Department Endcap Stand',
+      'Customer Service holding rack under counter',
+    ],
+    vendorBoxIdentifier: 'Kraft carton with green/red MJ Holding sticker',
+    cartType: 'Hand carried parcel or hand truck dolly',
+    dialogueScript: '"Hello! Could you let me know if your MJ Holding trading card delivery came in today? I’m looking for any Pokémon booster packs or bundles behind the counter."',
+    purchaseLimits: 'Strict 2 per customer (B&N Membership perks apply)',
+    hotProducts: '151 Booster Bundles ($26.99), Sleeved Boosters ($4.49), Premium Tins',
+    color: '#285943',
+    recentSightings: [
+      {
+        storeName: 'Barnes & Noble #2810',
+        distanceMiles: 5.2,
+        timeAgo: '1 hour ago',
+        status: 'Fresh Stock on Shelf',
+        repActivity: 'Cashier confirmed 6 booster bundles behind desk. 2-limit enforced.',
+        verified: true,
+      },
+    ],
+  },
+  {
+    id: 'pred-gamestop',
+    retailer: 'GameStop',
+    vendor: 'FedEx / Corporate Priority Freight',
+    vendorType: 'FedEx/UPS Courier',
+    deliveryDays: ['Tuesday', 'Wednesday', 'Friday'],
+    exactWindow: '11:00 AM – 2:30 PM',
+    dockCheckInTime: '10:45 AM – 11:30 AM (FedEx carrier arrival)',
+    floorStagingTime: '12:00 PM – 1:30 PM (Checked into inventory drawer)',
+    todayProbability: {
+      Monday: { score: 20, label: 'Low', note: 'Pre-order pickups only.' },
+      Tuesday: { score: 70, label: 'High', note: 'Midweek FedEx parcel drops.' },
+      Wednesday: { score: 65, label: 'Moderate', note: 'Replenishment boxes arrive.' },
+      Thursday: { score: 50, label: 'Moderate', note: 'Staging for Friday events.' },
+      Friday: { score: 93, label: 'Very High', note: 'Official release day & restock shipment.' },
+      Saturday: { score: 35, label: 'Moderate', note: 'Weekend Pro Member allocations.' },
+      Sunday: { score: 10, label: 'Low', note: 'No carrier deliveries.' },
+    },
+    primaryStashSpot: 'Counter Drawer / Bottom Storage behind the Cash Register Counter',
+    backupStashSpots: [
+      'Front Entrance Center Display Tower (Collectible TCG section)',
+      'Locked Glass Display Case (High-end ETBs & PSA slabs)',
+      'Behind Counter Pick-up Shelf',
+    ],
+    vendorBoxIdentifier: 'Brown FedEx box with GameStop DC shipping label',
+    cartType: 'FedEx delivery driver hand truck',
+    dialogueScript: '"Hi there! Did your midday FedEx shipment arrive yet, and did it include any Pokémon TCG booster bundles or ETBs?"',
+    purchaseLimits: '2 per customer (Pro Members get 5% off + first-day allocation)',
+    hotProducts: 'Exclusive ETBs, Booster Bundles ($26.99), Sleeved Booster Packs',
+    color: '#e02424',
+    recentSightings: [
+      {
+        storeName: 'GameStop #4192',
+        distanceMiles: 2.8,
+        timeAgo: '35 mins ago',
+        status: 'Staged in Back',
+        repActivity: 'Associate confirmed FedEx box arrived, currently scanning into system.',
+        verified: true,
+      },
+    ],
+  },
+  {
+    id: 'pred-costco',
+    retailer: 'Costco Wholesale & Sam’s Club',
+    vendor: 'Direct Warehouse Distributor',
+    vendorType: 'DC Warehouse Freight',
+    deliveryDays: ['Thursday', 'Friday', 'Saturday'],
+    exactWindow: '9:30 AM – 11:30 AM (Doors Open)',
+    dockCheckInTime: 'Overnight Freight Unload (4:00 AM – 7:00 AM)',
+    floorStagingTime: 'Staged on floor before 9:30 AM opening',
+    todayProbability: {
+      Monday: { score: 20, label: 'Low', note: 'Weekend leftovers.' },
+      Tuesday: { score: 20, label: 'Low', note: 'Regular grocery freight.' },
+      Wednesday: { score: 30, label: 'Low', note: 'Midweek pallet movement.' },
+      Thursday: { score: 75, label: 'High', note: 'Nightly freight unloads for weekend.' },
+      Friday: { score: 90, label: 'Very High', note: 'Fresh pallet dropped on floor for morning shoppers.' },
+      Saturday: { score: 95, label: 'Very High', note: 'Full seasonal toy run restocked at 9:30 AM open.' },
+      Sunday: { score: 40, label: 'Moderate', note: 'Residual weekend inventory.' },
+    },
+    primaryStashSpot: 'Center Seasonal Toy Run Pallet Racks (Look for shrink-wrapped wooden pallets)',
+    backupStashSpots: [
+      'Front Entrance Promotional Display Island',
+      'Electronics Counter Perimeter (Next to laptop tables)',
+      'Books & Media Display Tables',
+    ],
+    vendorBoxIdentifier: 'Pallet shrink-wrap with official Pokémon Company cardboard topper',
+    cartType: 'Full wooden warehouse pallet handled by forklift',
+    dialogueScript: '"Hi, could you tell me if the center toy run pallet has the Pokémon Crown Zenith Sea & Sky or holiday pencil tin bundle in stock today?"',
+    purchaseLimits: '2-5 per membership depending on product',
+    hotProducts: 'Crown Zenith Sea & Sky ($39.99 for 14 packs), 5-Tin Bundles, Pokeball Tins',
+    color: '#ff9800',
+    recentSightings: [
+      {
+        storeName: 'Costco Wholesale #1128',
+        distanceMiles: 6.1,
+        timeAgo: '1 hour ago',
+        status: 'Fresh Stock on Shelf',
+        repActivity: 'Half pallet of Crown Zenith Sea & Sky bundles on floor. Price: $39.99.',
+        verified: true,
+      },
+    ],
   },
 ];
 
@@ -53,9 +406,9 @@ export const DEFAULT_POKEMON_DROPS: PokemonDropItem[] = [
     actualPrice: 26.94,
     marketPrice: 48.5,
     dropStatus: 'VENDOR IN-STORE NOW',
-    restockSchedule: 'MJ Holding rep spotted stocking front registers this morning',
+    restockSchedule: 'MJ Holding rep delivery window: Thurs/Fri 9:30 AM - 1:30 PM',
     inStoreLocation: 'Front Checkout Lanes 3 & 4 (MJ Holding Trading Card Display Wall)',
-    hunterTips: 'Rep arrived at 8:15 AM with 4 cases (40 bundles). Limit 2 per customer at self checkout. High demand—selling out within 45 minutes.',
+    hunterTips: 'Rep arrived at 9:45 AM with 4 cases (40 bundles). Limit 2 per customer at self checkout. High demand—selling out within 45 minutes.',
     purchaseLimit: '2 per customer enforced',
     closestStoreStock: {
       storeName: 'Walmart Supercenter #1909',
@@ -79,10 +432,10 @@ export const DEFAULT_POKEMON_DROPS: PokemonDropItem[] = [
     actualPrice: 54.99,
     marketPrice: 110.0,
     dropStatus: 'RESTOCK DROP TODAY',
-    restockSchedule: 'Excell Marketing expected delivery window 9:00 AM - 11:30 AM',
+    restockSchedule: 'Excell Marketing delivery window: Tues/Thurs/Fri 8:00 AM - 11:30 AM',
     inStoreLocation: 'Behind Guest Services Counter (Customer Service Pickup)',
     hunterTips: 'Target moved all Prismatic Evolutions behind the guest services counter. Ask the team member politely for the TCG restock inventory.',
-    purchaseLimit: 'Strict 1 per customer policy',
+    purchaseLimit: 'Strict 1-2 per customer policy',
     closestStoreStock: {
       storeName: 'Target Store #1104',
       distanceMiles: 3.4,
@@ -120,7 +473,7 @@ export const DEFAULT_POKEMON_DROPS: PokemonDropItem[] = [
   },
   {
     id: 'poke-4',
-    name: 'Pokémon TCG: Crown Zenith Sea & Sky Premium Collection (14 Booster Packs)',
+    name: 'Pokémon TCG: Crown Zenith Sea & Sky Premium Collection (14 Packs)',
     series: 'Crown Zenith',
     productType: 'Collection Box',
     store: 'Sam’s Club',
@@ -131,7 +484,7 @@ export const DEFAULT_POKEMON_DROPS: PokemonDropItem[] = [
     actualPrice: 39.98,
     marketPrice: 78.0,
     dropStatus: 'VENDOR IN-STORE NOW',
-    restockSchedule: 'Warehouse pallet drop this morning',
+    restockSchedule: 'Warehouse pallet drop Thursday night / Friday morning',
     inStoreLocation: 'Center Toy Run Pallet B-14 (Next to Holiday gift sets)',
     hunterTips: '14 packs of Crown Zenith + Rayquaza & Kyogre promos for $39.98 is ~$2.85 per pack! Resells instantly at $75+ online.',
     purchaseLimit: '5 per membership',
@@ -157,7 +510,7 @@ export const DEFAULT_POKEMON_DROPS: PokemonDropItem[] = [
     actualPrice: 26.99,
     marketPrice: 42.0,
     dropStatus: 'RESTOCK DROP TODAY',
-    restockSchedule: 'Friday restock cycle',
+    restockSchedule: 'Excell Marketing Friday restock cycle (8 AM - 10:30 AM)',
     inStoreLocation: 'Front lanes 1-4 checkout endcaps',
     hunterTips: 'Contains shiny vault chase cards. High volume restock today. Excell rep stocked around 9 AM.',
     purchaseLimit: '2 per customer',
@@ -172,7 +525,7 @@ export const DEFAULT_POKEMON_DROPS: PokemonDropItem[] = [
   },
   {
     id: 'poke-6',
-    name: 'Pokémon TCG: 151 Poster Collection Box (3 Packs + Kanto Starters)',
+    name: 'Pokémon TCG: 151 Poster Collection Box (3 Packs + Starters)',
     series: '151 Special Set',
     productType: 'Collection Box',
     store: 'Target',
@@ -209,7 +562,7 @@ export const DEFAULT_POKEMON_DROPS: PokemonDropItem[] = [
     actualPrice: 24.98,
     marketPrice: 45.0,
     dropStatus: 'VENDOR IN-STORE NOW',
-    restockSchedule: 'MJ Holding Friday shipment',
+    restockSchedule: 'MJ Holding Thursday/Friday shipment',
     inStoreLocation: 'Front register TCG wall (Top hanging pegs)',
     hunterTips: 'Look for the heavy green/gold boxes. Known to contain seed packs from Sun & Moon and occasionally Base Set/Jungle vintage packs.',
     purchaseLimit: '2 per customer',

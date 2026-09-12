@@ -749,7 +749,7 @@ export default function App() {
             }`}
           >
             <Navigation className="w-3.5 h-3.5" />
-            <span>Route Planner</span>
+            <span>Game Plan & Penny Clock</span>
           </button>
           <button
             type="button"
@@ -829,14 +829,17 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('pokemon')}
-            className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1 shrink-0 cursor-pointer ${
+            className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'pokemon'
                 ? 'bg-[#ffd60a] text-black shadow-sm font-black'
                 : 'text-[#ffd60a] hover:bg-[#ffd60a]/10'
             }`}
           >
             <Zap className="w-3.5 h-3.5 fill-current" />
-            <span>Pokémon TCG Drops</span>
+            <span>Pokémon Deliveries & Drops</span>
+            <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-[#ffd60a] font-mono font-black border border-[#ffd60a]/30">
+              DSD
+            </span>
           </button>
           <button
             type="button"
@@ -912,6 +915,7 @@ export default function App() {
         {(activeTab === 'all' || activeTab === 'route') && (
           <SourcingRunPlanner
             zipCode={zipCode}
+            onUpdateZip={handleUpdateZip}
             onAddToCart={handleAddToCartFromPokemon}
             onLoadIntoCalculator={handleLoadFromDealSoldier}
             onNotify={addToast}

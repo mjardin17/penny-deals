@@ -1,8 +1,9 @@
 {
   "name": "Penny Deals Hunter Pro",
-  "description": "Retail arbitrage sourcing engine featuring individual store lookup, flexible search scope radius, and clearance radar across The Home Depot, Lowe's, Walmart, Target, Dollar General, Harbor Freight, Tractor Supply, Ollie's, Best Buy, Ace Hardware, Costco, and more.",
+  "description": "Retail arbitrage sourcing engine featuring customized location game plans, in-store route optimizer, extreme cheap Oops paint scoping, exact penny deal timing clock, and clearance radar across major retailers.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
