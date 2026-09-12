@@ -523,6 +523,43 @@ export interface StoreCouponOffer {
   hunterNotes: string;
 }
 
+export type WholesaleClubName = 'Costco Wholesale' | "Sam's Club" | "BJ's Wholesale";
+
+export interface WholesaleDeathMarkDeal {
+  id: string;
+  club: WholesaleClubName;
+  title: string;
+  category: string;
+  itemNumber: string;
+  upc: string;
+  originalPrice: number;
+  markdownPrice: number;
+  discountPct: number;
+  tagEnding: string;
+  hasAsterisk: boolean;
+  hasDiscontinuedLetter: boolean;
+  statusLabel: string;
+  tagDecodedMeaning: string;
+  actionRecommendation: 'BUY OUT PALLET' | 'HEAVY FLIP BUY' | 'MONITOR NEXT CUT' | 'RISKY SPECULATION';
+  marketResaleComps: {
+    source: 'eBay Sold' | 'Amazon BuyBox' | 'FB Marketplace' | 'Mercari';
+    soldAvgPrice: number;
+    sellThroughRatePct: number;
+    velocity: 'Fast (1-3 days)' | 'Moderate (1-2 wks)' | 'Slow (30+ days)';
+    netProfit: number;
+    roiPct: number;
+  };
+  warehouseLocationAisle: string;
+  reportedWarehouse: {
+    clubName: string;
+    distanceMiles: number;
+    stockOnHand: number;
+    reportedAt: string;
+  };
+  hunterProTips: string;
+  isManagerDiscretion?: boolean;
+}
+
 
 
 

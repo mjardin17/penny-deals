@@ -8,6 +8,7 @@ import { DealSoldierHub } from './components/DealSoldierHub';
 import { WalmartSecretHub } from './components/WalmartSecretHub';
 import { TargetSecretHub } from './components/TargetSecretHub';
 import { LowesSecretHub } from './components/LowesSecretHub';
+import { CostcoDeathStarHub } from './components/CostcoDeathStarHub';
 import { CrossStoreScannerHub } from './components/CrossStoreScannerHub';
 import { PokemonTcgRadar } from './components/PokemonTcgRadar';
 import { InStoreBarcodeScanner } from './components/InStoreBarcodeScanner';
@@ -86,6 +87,7 @@ export default function App() {
     | 'walmart'
     | 'target'
     | 'lowes'
+    | 'costco'
     | 'dealsoldier'
     | 'pokemon'
     | 'dealseek'
@@ -813,6 +815,21 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('costco')}
+            className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
+              activeTab === 'costco'
+                ? 'bg-[#ff3b30] text-white shadow-sm font-black'
+                : 'text-[#ff453a] hover:bg-[#ff3b30]/10'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5 text-[#ffd60a]" />
+            <span>Costco & Sam's Death Mark</span>
+            <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-[#ffd60a] font-mono font-black border border-[#ffd60a]/30">
+              .97 / *
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('dealsoldier')}
             className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'dealsoldier'
@@ -1005,6 +1022,17 @@ export default function App() {
             zipCode={zipCode}
             onLoadIntoCalculator={handleLoadFromLowes}
             onAddToCart={handleAddToCartFromLowes}
+            onNotify={addToast}
+            onOpenScanner={() => setIsScannerOpen(true)}
+          />
+        )}
+
+        {/* Costco & Sam's Club Death Mark & .97 Clearance Radar */}
+        {(activeTab === 'all' || activeTab === 'costco') && (
+          <CostcoDeathStarHub
+            zipCode={zipCode}
+            onLoadIntoCalculator={handleLoadFromDealSoldier}
+            onAddToCart={handleAddToCartFromPokemon}
             onNotify={addToast}
             onOpenScanner={() => setIsScannerOpen(true)}
           />
