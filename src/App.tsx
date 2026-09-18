@@ -22,6 +22,7 @@ import { DealDiagnosticModal } from './components/DealDiagnosticModal';
 import { StoreLookupDirectory } from './components/StoreLookupDirectory';
 import { AutoCouponMaximizer } from './components/AutoCouponMaximizer';
 import { CartLog } from './components/CartLog';
+import { ArbitrageHub } from './components/arbitrage/ArbitrageHub';
 import { Toast, ToastMessage } from './components/Toast';
 import { SourcingItem, DealSeekItem, DealSoldierItem, WalmartSecretItem, StoreProfile, StoreDealItem, AutoCoupledDeal } from './types';
 import { autoCoupleCustomItem } from './data/autoCouplerData';
@@ -93,6 +94,7 @@ export default function App() {
     | 'dealseek'
     | 'dg'
     | 'calc'
+    | 'arbitrage'
     | 'watchlist'
   >('all');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -895,6 +897,17 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('arbitrage')}
+            className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1 shrink-0 cursor-pointer ${
+              activeTab === 'arbitrage'
+                ? 'bg-[#30d158] text-black shadow-sm'
+                : 'text-[#30d158] hover:bg-[#30d158]/10 border border-[#30d158]/30'
+            }`}
+          >
+            <span>💸 Arbitrage</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('watchlist')}
             className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1 shrink-0 cursor-pointer ${
               activeTab === 'watchlist'
@@ -1098,6 +1111,23 @@ export default function App() {
             onClearPrefill={() => setCalcPrefillData(null)}
             onAddItem={handleAddItem}
             onNotify={addToast}
+          />
+        )}
+
+        {/* Arbitrage: live eBay/Amazon cross-reference with real fees. Deal hubs prefill it via calcPrefillData. */}
+        {(activeTab === 'all' || activeTab === 'calc' || activeTab === 'arbitrage') && (
+          <ArbitrageHub
+            key={calcPrefillData ? `${calcPrefillData.name}-${calcPrefillData.buy}` : 'empty'}
+            prefill={
+              calcPrefillData
+                ? {
+                    title: calcPrefillData.name,
+                    buyPrice: calcPrefillData.buy ? parseFloat(calcPrefillData.buy) : undefined,
+                    store: calcPrefillData.store,
+                  }
+                : undefined
+            }
+            onNotify={(msg) => addToast(msg, 'info')}
           />
         )}
 

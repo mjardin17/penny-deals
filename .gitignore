@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Digest store-location cache
+digest/.cache/
