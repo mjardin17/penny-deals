@@ -13,7 +13,8 @@ import { geocodeZip, loadNearbyStores } from "./geo";
 import { classifyPost, sortClosestFirst } from "./classify";
 import { renderDigest } from "./render";
 import { DigestHit, NearbyStore, RawPost, SourceStatus } from "./types";
-import { findSpread } from "../server/arbitrage/spreadEngine";
+import { findSpreadAndLog } from "../server/learning/loggedSpread";
+import { renderLearningSummary, runWeeklyLearningPass } from "../server/learning/weeklyPass";
 
 /** Sources that can't be automated honestly; listed so the digest says what it didn't check. */
 const NOT_AUTOMATED: SourceStatus[] = [
@@ -43,7 +44,10 @@ async function addResaleChecks(hits: DigestHit[]): Promise<SourceStatus> {
   let flagged = 0;
   for (const hit of priced) {
     try {
-      const report = await findSpread({ title: hit.post.title, buyPrice: hit.price!, store: hit.store ?? undefined });
+      const report = await findSpreadAndLog(
+        { title: hit.post.title, buyPrice: hit.price!, store: hit.store ?? undefined },
+        { category: hit.kind, source: "ebay-arbitrage" }
+      );
       const best = report.bestRealSpread;
       if (best?.profit) {
         flagged++;
@@ -107,9 +111,12 @@ export async function runDigest(config: DigestConfig, now = new Date()): Promise
     sources
   );
 
+  const learning = await runWeeklyLearningPass(now);
+  const fullMarkdown = markdown + "\n" + renderLearningSummary(learning);
+
   await mkdir(config.outDir, { recursive: true });
   const file = path.join(config.outDir, `${date}.md`);
-  await writeFile(file, markdown, "utf8");
+  await writeFile(file, fullMarkdown, "utf8");
   return { file, hits };
 }
 

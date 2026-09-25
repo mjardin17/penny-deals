@@ -9,8 +9,10 @@ import dotenv from "dotenv";
 import { marketplaceRouter } from "./server/routes/marketplace";
 import { aiResearchRouter } from "./server/routes/aiResearch";
 import { arbitrageRouter } from "./server/routes/arbitrage";
+import { learningRouter } from "./server/routes/learning";
 import { marketplaceCache } from "./server/marketplace/cache";
 import { cacheSize } from "./server/gemini";
+import { basicAuthMiddleware } from "./server/basicAuth";
 
 dotenv.config({ path: [".env.local", ".env"] });
 
@@ -18,6 +20,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 app.use(express.json({ limit: "1mb" }));
+app.use(basicAuthMiddleware(process.env.TUNNEL_BASIC_AUTH_USER, process.env.TUNNEL_BASIC_AUTH_PASS));
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -33,6 +36,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api", marketplaceRouter);
 app.use("/api", aiResearchRouter);
 app.use("/api", arbitrageRouter);
+app.use("/api", learningRouter);
 
 app.use("/api", (_req, res) => {
   res.status(404).json({ success: false, error: "Unknown API route" });

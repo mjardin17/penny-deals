@@ -9,3 +9,7 @@ coverage/
 
 # Digest store-location cache
 digest/.cache/
+
+# Learning loop runtime state (predictions log + tuned weights) — local, not source.
+# The digest's "what I learned this week" section is the git-tracked human summary.
+data/

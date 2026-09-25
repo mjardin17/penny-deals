@@ -1,0 +1,17 @@
+{
+  "name": "Penny Deals",
+  "short_name": "Penny Deals",
+  "description": "Scan a barcode in-store and get a buy/don't-buy verdict from live eBay comps and real fees.",
+  "start_url": "/phone.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f5c3f",
+  "theme_color": "#0f5c3f",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

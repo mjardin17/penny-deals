@@ -1,6 +1,8 @@
 import { Router } from "express";
-import { findSpread, SpreadCandidate } from "../arbitrage/spreadEngine";
+import { SpreadCandidate } from "../arbitrage/spreadEngine";
 import { FEE_SOURCES, FEE_TABLES_RETRIEVED, PackageSpec } from "../../shared/fees";
+import { findSpreadAndLog, SpreadLogMeta } from "../learning/loggedSpread";
+import { PredictionSource } from "../learning/predictionsLog";
 
 export const arbitrageRouter = Router();
 
@@ -30,6 +32,13 @@ export function parseCandidate(raw: any): SpreadCandidate | string {
   };
 }
 
+/** category/source default to a plain desktop-calculator check; the phone scan page sends its own. */
+export function parseLogMeta(raw: any): SpreadLogMeta {
+  const source: PredictionSource = raw?.source === "penny-scan" ? "penny-scan" : "ebay-arbitrage";
+  const category = typeof raw?.category === "string" && raw.category.trim() ? raw.category.trim().slice(0, 40) : "uncategorized";
+  return { category, source };
+}
+
 arbitrageRouter.get("/fees/sources", (_req, res) => {
   res.json({ success: true, retrieved: FEE_TABLES_RETRIEVED, data: FEE_SOURCES });
 });
@@ -38,7 +47,7 @@ arbitrageRouter.post("/arbitrage/spread", async (req, res) => {
   const parsed = parseCandidate(req.body);
   if (typeof parsed === "string") return res.status(400).json({ success: false, error: parsed });
   try {
-    res.json({ success: true, data: await findSpread(parsed) });
+    res.json({ success: true, data: await findSpreadAndLog(parsed, parseLogMeta(req.body)) });
   } catch (err: any) {
     console.error("[arbitrage/spread]", err);
     res.status(500).json({ success: false, error: err?.message || "Spread check failed" });
@@ -57,7 +66,9 @@ arbitrageRouter.post("/arbitrage/spread-batch", async (req, res) => {
   try {
     const reports = [];
     // Sequential on purpose: the providers share rate limiters.
-    for (const c of candidates as SpreadCandidate[]) reports.push(await findSpread(c));
+    for (let i = 0; i < candidates.length; i++) {
+      reports.push(await findSpreadAndLog(candidates[i] as SpreadCandidate, parseLogMeta(items[i])));
+    }
     res.json({ success: true, data: reports });
   } catch (err: any) {
     console.error("[arbitrage/spread-batch]", err);
