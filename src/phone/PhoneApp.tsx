@@ -89,24 +89,59 @@ function VerdictCard({ report }: { report: LoggedSpreadReport }) {
   );
 }
 
+const CAMERA_STORAGE_KEY = 'pennyPhoneCameraId';
+
 function ScanTab() {
   const [upc, setUpc] = useState('');
   const [title, setTitle] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
   const [store, setStore] = useState('');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>(() => {
+    try {
+      return localStorage.getItem(CAMERA_STORAGE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
   const [checking, setChecking] = useState(false);
   const [report, setReport] = useState<LoggedSpreadReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<import('html5-qrcode').Html5Qrcode | null>(null);
   const readerId = 'phone-scan-viewport';
 
+  async function onDecoded(decodedText: string) {
+    const code = decodedText.trim();
+    setUpc(code);
+    if (scannerRef.current?.isScanning) await scannerRef.current.stop();
+    const match = await lookupBarcodeAsync(code);
+    setTitle(match.title);
+  }
+
+  async function startScan(cameraTarget: string | { facingMode: string }) {
+    const scanner = scannerRef.current;
+    if (!scanner) return;
+    if (scanner.isScanning) await scanner.stop();
+    setCameraError(null);
+    try {
+      await scanner.start(
+        cameraTarget,
+        { fps: 12, qrbox: { width: 260, height: 160 } },
+        (decodedText) => void onDecoded(decodedText),
+        () => {}
+      );
+    } catch (err: any) {
+      setCameraError(err?.message || 'Camera not available. Type the UPC manually below.');
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
       if (cancelled) return;
-      const scanner = new Html5Qrcode(readerId, {
+      scannerRef.current = new Html5Qrcode(readerId, {
         formatsToSupport: [
           Html5QrcodeSupportedFormats.UPC_A,
           Html5QrcodeSupportedFormats.UPC_E,
@@ -116,22 +151,16 @@ function ScanTab() {
         ],
         verbose: false,
       });
-      scannerRef.current = scanner;
+
+      await startScan(selectedCameraId || { facingMode: 'environment' });
+      if (cancelled) return;
+
+      // Listing cameras needs a permission grant, which the start() call above just got us.
       try {
-        await scanner.start(
-          { facingMode: 'environment' },
-          { fps: 12, qrbox: { width: 260, height: 160 } },
-          async (decodedText) => {
-            const code = decodedText.trim();
-            setUpc(code);
-            if (scannerRef.current?.isScanning) await scannerRef.current.stop();
-            const match = await lookupBarcodeAsync(code);
-            setTitle(match.title);
-          },
-          () => {}
-        );
-      } catch (err: any) {
-        setCameraError(err?.message || 'Camera not available. Type the UPC manually below.');
+        const found = await Html5Qrcode.getCameras();
+        if (!cancelled) setCameras(found);
+      } catch {
+        // Camera list is a nice-to-have; scanning already works without it.
       }
     })();
 
@@ -139,31 +168,25 @@ function ScanTab() {
       cancelled = true;
       if (scannerRef.current?.isScanning) scannerRef.current.stop().catch(() => {});
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function onCameraChange(id: string) {
+    setSelectedCameraId(id);
+    try {
+      localStorage.setItem(CAMERA_STORAGE_KEY, id);
+    } catch {
+      // best effort
+    }
+    await startScan(id || { facingMode: 'environment' });
+  }
 
   async function rescan() {
     setReport(null);
     setError(null);
     setUpc('');
     setTitle('');
-    if (scannerRef.current && !scannerRef.current.isScanning) {
-      try {
-        await scannerRef.current.start(
-          { facingMode: 'environment' },
-          { fps: 12, qrbox: { width: 260, height: 160 } },
-          async (decodedText) => {
-            const code = decodedText.trim();
-            setUpc(code);
-            if (scannerRef.current?.isScanning) await scannerRef.current.stop();
-            const match = await lookupBarcodeAsync(code);
-            setTitle(match.title);
-          },
-          () => {}
-        );
-      } catch {
-        // camera already reported unavailable; manual entry still works
-      }
-    }
+    await startScan(selectedCameraId || { facingMode: 'environment' });
   }
 
   async function checkSpread() {
@@ -197,6 +220,20 @@ function ScanTab() {
         style={{ width: '100%', borderRadius: 12, overflow: 'hidden', background: '#111', minHeight: 220 }}
       />
       {cameraError && <p style={{ color: '#ff9f0a', fontSize: 13 }}>{cameraError}</p>}
+
+      {cameras.length > 1 && (
+        <label style={{ ...fieldLabel, marginTop: 8 }}>
+          Camera
+          <select value={selectedCameraId} onChange={(e) => onCameraChange(e.target.value)} style={inputStyle}>
+            <option value="">Default (rear)</option>
+            {cameras.map((cam) => (
+              <option key={cam.id} value={cam.id}>
+                {cam.label || cam.id}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
         <label style={fieldLabel}>
