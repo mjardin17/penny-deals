@@ -110,12 +110,25 @@ function ScanTab() {
   const [error, setError] = useState<string | null>(null);
   const [diag, setDiag] = useState('not started');
   const scannerRef = useRef<import('html5-qrcode').Html5Qrcode | null>(null);
+  // Serializes every start()/stop() call on the scanner so React StrictMode's
+  // double-invoked effect (mount -> cleanup -> mount, in dev mode) can never
+  // fire an overlapping start() while the previous instance is still stopping
+  // -- that race is exactly what throws "Cannot clear while scan is ongoing."
+  const opQueueRef = useRef<Promise<void>>(Promise.resolve());
   const readerId = 'phone-scan-viewport';
+
+  function queueOp(op: () => Promise<void>): Promise<void> {
+    const next = opQueueRef.current.then(op, op);
+    opQueueRef.current = next;
+    return next;
+  }
 
   async function onDecoded(decodedText: string) {
     const code = decodedText.trim();
     setUpc(code);
-    if (scannerRef.current?.isScanning) await scannerRef.current.stop();
+    await queueOp(async () => {
+      if (scannerRef.current?.isScanning) await scannerRef.current.stop();
+    });
     const match = await lookupBarcodeAsync(code);
     setTitle(match.title);
   }
@@ -133,26 +146,34 @@ function ScanTab() {
     );
   }
 
-  async function startScan(cameraTarget: string | { facingMode: string }) {
-    const scanner = scannerRef.current;
-    if (!scanner) return;
-    if (scanner.isScanning) await scanner.stop();
-    setCameraError(null);
-    setDiag('requesting camera...');
-    try {
-      await scanner.start(
-        cameraTarget,
-        { fps: 12, qrbox: { width: 260, height: 160 } },
-        (decodedText) => void onDecoded(decodedText),
-        () => {}
-      );
-      setDiag('start() resolved: ' + describeVideoElement());
-      // The stream can take a beat to actually paint; recheck a moment later.
-      setTimeout(() => setDiag('after 1.5s: ' + describeVideoElement()), 1500);
-    } catch (err: any) {
-      setCameraError(err?.message || 'Camera not available. Type the UPC manually below.');
-      setDiag('start() threw: ' + (err?.name || '') + ' ' + (err?.message || String(err)));
-    }
+  function startScan(cameraTarget: string | { facingMode: string }): Promise<void> {
+    return queueOp(async () => {
+      const scanner = scannerRef.current;
+      if (!scanner) return;
+      if (scanner.isScanning) {
+        try {
+          await scanner.stop();
+        } catch {
+          // best effort -- start() below will surface any real problem
+        }
+      }
+      setCameraError(null);
+      setDiag('requesting camera...');
+      try {
+        await scanner.start(
+          cameraTarget,
+          { fps: 12, qrbox: { width: 260, height: 160 } },
+          (decodedText) => void onDecoded(decodedText),
+          () => {}
+        );
+        setDiag('start() resolved: ' + describeVideoElement());
+        // The stream can take a beat to actually paint; recheck a moment later.
+        setTimeout(() => setDiag('after 1.5s: ' + describeVideoElement()), 1500);
+      } catch (err: any) {
+        setCameraError(err?.message || 'Camera not available. Type the UPC manually below.');
+        setDiag('start() threw: ' + (err?.name || '') + ' ' + (err?.message || String(err)));
+      }
+    });
   }
 
   useEffect(() => {
@@ -160,16 +181,20 @@ function ScanTab() {
     (async () => {
       const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
       if (cancelled) return;
-      scannerRef.current = new Html5Qrcode(readerId, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_128,
-        ],
-        verbose: false,
-      });
+      // Reused across React StrictMode's dev-mode double-invoke of this effect --
+      // refs survive that cycle, so only create the scanner once.
+      if (!scannerRef.current) {
+        scannerRef.current = new Html5Qrcode(readerId, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_128,
+          ],
+          verbose: false,
+        });
+      }
 
       await startScan(selectedCameraId || { facingMode: 'environment' });
       if (cancelled) return;
@@ -185,7 +210,15 @@ function ScanTab() {
 
     return () => {
       cancelled = true;
-      if (scannerRef.current?.isScanning) scannerRef.current.stop().catch(() => {});
+      queueOp(async () => {
+        if (scannerRef.current?.isScanning) {
+          try {
+            await scannerRef.current.stop();
+          } catch {
+            // ignore -- component is unmounting either way
+          }
+        }
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
