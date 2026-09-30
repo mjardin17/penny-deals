@@ -15,6 +15,9 @@ import { renderDigest } from "./render";
 import { DigestHit, NearbyStore, RawPost, SourceStatus } from "./types";
 import { findSpreadAndLog } from "../server/learning/loggedSpread";
 import { renderLearningSummary, runWeeklyLearningPass } from "../server/learning/weeklyPass";
+import { aggregateCoupons } from "../server/coupons/aggregator";
+import { activeUnexpired, sortSoonestExpiring } from "../server/coupons/filters";
+import { renderCouponsSection } from "./couponsSection";
 
 /** Sources that can't be automated honestly; listed so the digest says what it didn't check. */
 const NOT_AUTOMATED: SourceStatus[] = [
@@ -111,8 +114,11 @@ export async function runDigest(config: DigestConfig, now = new Date()): Promise
     sources
   );
 
+  const { coupons } = await aggregateCoupons();
+  const couponsSection = renderCouponsSection(sortSoonestExpiring(activeUnexpired(coupons, now)));
+
   const learning = await runWeeklyLearningPass(now);
-  const fullMarkdown = markdown + "\n" + renderLearningSummary(learning);
+  const fullMarkdown = markdown + "\n" + couponsSection + "\n" + renderLearningSummary(learning);
 
   await mkdir(config.outDir, { recursive: true });
   const file = path.join(config.outDir, `${date}.md`);

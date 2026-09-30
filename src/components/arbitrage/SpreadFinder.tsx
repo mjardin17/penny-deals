@@ -1,6 +1,7 @@
-import React, { useState } from "react";
-import { CheckCircle2, ExternalLink, Loader2, Search, XCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { CheckCircle2, ExternalLink, Loader2, Search, Tag, XCircle } from "lucide-react";
 import { CHANNEL_LABELS, ProfitResult, SalesChannel } from "../../../shared/fees";
+import { Coupon, fetchCouponsForMerchant } from "../../utils/coupons";
 
 /** Mirrors server/arbitrage/spreadEngine.ts SpreadReport (JSON shape). */
 interface ChannelSpread {
@@ -69,6 +70,45 @@ const ChannelRow: React.FC<{ ch: ChannelSpread }> = ({ ch }) => {
     </div>
   );
 }
+
+const CouponBadge: React.FC<{ merchant?: string }> = ({ merchant }) => {
+  const [coupon, setCoupon] = useState<Coupon | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!merchant) {
+      setCoupon(null);
+      return;
+    }
+    fetchCouponsForMerchant(merchant).then((coupons) => {
+      if (!cancelled) setCoupon(coupons[0] ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [merchant]);
+
+  if (!coupon) return null;
+
+  return (
+    <div className="rounded-xl border border-[#ff9800] bg-[#ff9800]/10 p-3 flex items-center justify-between gap-3">
+      <div>
+        <div className="text-xs font-bold text-[#ff9800] flex items-center gap-1.5">
+          <Tag className="w-3.5 h-3.5" /> {coupon.merchant} coupon: {coupon.discountText}
+        </div>
+        <code className="text-sm text-[#f5f5f7] bg-[#0b0b0d] px-2 py-0.5 rounded mt-1 inline-block">{coupon.code}</code>
+      </div>
+      <a
+        href={coupon.affiliateUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 text-xs font-bold text-black bg-[#ff9800] px-3 py-1.5 rounded-lg hover:brightness-110"
+      >
+        Claim
+      </a>
+    </div>
+  );
+};
 
 export const SpreadFinder: React.FC<{ prefill?: SpreadFinderPrefill }> = ({ prefill }) => {
   const [title, setTitle] = useState(prefill?.title ?? "");
@@ -147,6 +187,7 @@ export const SpreadFinder: React.FC<{ prefill?: SpreadFinderPrefill }> = ({ pref
               <ChannelRow key={ch.channel} ch={ch} />
             ))}
           </div>
+          <CouponBadge merchant={prefill?.store} />
         </div>
       )}
     </section>

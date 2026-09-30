@@ -21,6 +21,7 @@ import { ReceiptDigitizerModal } from './components/ReceiptDigitizerModal';
 import { DealDiagnosticModal } from './components/DealDiagnosticModal';
 import { StoreLookupDirectory } from './components/StoreLookupDirectory';
 import { AutoCouponMaximizer } from './components/AutoCouponMaximizer';
+import { CouponsAdmin } from './components/CouponsAdmin';
 import { CartLog } from './components/CartLog';
 import { ArbitrageHub } from './components/arbitrage/ArbitrageHub';
 import { Toast, ToastMessage } from './components/Toast';
@@ -96,6 +97,7 @@ export default function App() {
     | 'calc'
     | 'arbitrage'
     | 'watchlist'
+    | 'coupons'
   >('all');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
@@ -917,6 +919,17 @@ export default function App() {
           >
             <span>🍁 Watchlist</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('coupons')}
+            className={`py-1.5 px-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1 shrink-0 cursor-pointer ${
+              activeTab === 'coupons'
+                ? 'bg-[#222227] text-[#f5f5f7] shadow-sm border border-[#2c2c35]'
+                : 'text-[#92929d] hover:text-[#f5f5f7]'
+            }`}
+          >
+            <span>🏷️ Coupons</span>
+          </button>
         </div>
 
         {/* Auto-Coupon & Multi-Layer Stack Maximizer */}
@@ -928,6 +941,9 @@ export default function App() {
             onNotify={addToast}
           />
         )}
+
+        {/* Coupons admin: manage the real coupon store (server/coupons) */}
+        {activeTab === 'coupons' && <CouponsAdmin onNotify={addToast} />}
 
         {/* Individual Store Lookup & Scope Radar */}
         {(activeTab === 'all' || activeTab === 'stores') && (

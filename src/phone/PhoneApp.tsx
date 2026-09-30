@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CHANNEL_LABELS, ProfitResult, SalesChannel } from '../../shared/fees';
 import { lookupBarcodeAsync } from '../utils/barcodeLookup';
+import { Coupon, fetchCouponsForMerchant } from '../utils/coupons';
 
 /** Mirrors server/learning/loggedSpread.ts LoggedSpreadReport (JSON shape). */
 interface ChannelSpread {
@@ -39,7 +40,48 @@ type Tab = 'scan' | 'mine';
 
 const CATEGORY = 'penny-scan';
 
-function VerdictCard({ report }: { report: LoggedSpreadReport }) {
+function CouponBadge({ merchant }: { merchant?: string }) {
+  const [coupon, setCoupon] = useState<Coupon | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!merchant) {
+      setCoupon(null);
+      return;
+    }
+    fetchCouponsForMerchant(merchant).then((coupons) => {
+      if (!cancelled) setCoupon(coupons[0] ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [merchant]);
+
+  if (!coupon) return null;
+
+  return (
+    <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: '#1a1a1e', border: '1px solid #ff9800' }}>
+      <div style={{ fontSize: 12, color: '#ff9800', fontWeight: 700 }}>
+        {coupon.merchant} coupon: {coupon.discountText}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+        <code style={{ fontSize: 13, color: '#f5f5f7', background: '#0b0b0d', padding: '2px 8px', borderRadius: 6 }}>
+          {coupon.code}
+        </code>
+        <a
+          href={coupon.affiliateUrl}
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: 13, fontWeight: 700, color: '#000', background: '#ff9800', padding: '4px 10px', borderRadius: 8, textDecoration: 'none' }}
+        >
+          Claim
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function VerdictCard({ report, store }: { report: LoggedSpreadReport; store?: string }) {
   const best = report.bestRealSpread ?? report.channels.find((c) => c.status === 'ok');
   const isBuy = Boolean(report.bestRealSpread);
 
@@ -85,6 +127,7 @@ function VerdictCard({ report }: { report: LoggedSpreadReport }) {
           ))}
         </div>
       )}
+      <CouponBadge merchant={store} />
     </div>
   );
 }
@@ -323,7 +366,7 @@ function ScanTab() {
         {error && <p style={{ color: '#ff453a', fontSize: 13 }}>{error}</p>}
       </div>
 
-      {report && <VerdictCard report={report} />}
+      {report && <VerdictCard report={report} store={store} />}
     </div>
   );
 }

@@ -12,4 +12,9 @@ digest/.cache/
 
 # Learning loop runtime state (predictions log + tuned weights) — local, not source.
 # The digest's "what I learned this week" section is the git-tracked human summary.
-data/
+# Written as data/* (not data/) so the negation below can actually reach into it --
+# a plain "data/" excludes the whole directory as a unit and a per-file "!" inside
+# it is silently ignored by git.
+data/*
+# ...except the coupon store: seeded + admin-managed content, meant to be tracked.
+!data/coupons.json

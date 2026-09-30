@@ -10,6 +10,7 @@ import { marketplaceRouter } from "./server/routes/marketplace";
 import { aiResearchRouter } from "./server/routes/aiResearch";
 import { arbitrageRouter } from "./server/routes/arbitrage";
 import { learningRouter } from "./server/routes/learning";
+import { couponsRouter } from "./server/routes/coupons";
 import { marketplaceCache } from "./server/marketplace/cache";
 import { cacheSize } from "./server/gemini";
 import { basicAuthMiddleware } from "./server/basicAuth";
@@ -30,6 +31,7 @@ app.get("/api/health", (_req, res) => {
     aiProvidersConfigured: configuredProviders(),
     hasEbayCreds: Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET),
     hasAmazonCreds: Boolean(process.env.AMAZON_CREATORS_CREDENTIAL_ID && process.env.AMAZON_CREATORS_CREDENTIAL_SECRET),
+    hasAmazonPartnerTag: Boolean(process.env.AMAZON_PARTNER_TAG),
     aiCacheSize: cacheSize(),
     marketplaceCacheStats: marketplaceCache.getStats(),
   });
@@ -39,6 +41,7 @@ app.use("/api", marketplaceRouter);
 app.use("/api", aiResearchRouter);
 app.use("/api", arbitrageRouter);
 app.use("/api", learningRouter);
+app.use("/api", couponsRouter);
 
 app.use("/api", (_req, res) => {
   res.status(404).json({ success: false, error: "Unknown API route" });
