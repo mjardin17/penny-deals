@@ -108,6 +108,7 @@ function ScanTab() {
   const [checking, setChecking] = useState(false);
   const [report, setReport] = useState<LoggedSpreadReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [diag, setDiag] = useState('not started');
   const scannerRef = useRef<import('html5-qrcode').Html5Qrcode | null>(null);
   const readerId = 'phone-scan-viewport';
 
@@ -119,11 +120,25 @@ function ScanTab() {
     setTitle(match.title);
   }
 
+  function describeVideoElement(): string {
+    const container = document.getElementById(readerId);
+    const video = container?.querySelector('video');
+    if (!container) return 'container missing';
+    if (!video) return `no <video> yet (container ${container.clientWidth}x${container.clientHeight})`;
+    return (
+      `video ${video.videoWidth}x${video.videoHeight}, ` +
+      `el ${video.clientWidth}x${video.clientHeight}, ` +
+      `readyState=${video.readyState}, paused=${video.paused}, ` +
+      `srcObject=${video.srcObject ? 'set' : 'null'}`
+    );
+  }
+
   async function startScan(cameraTarget: string | { facingMode: string }) {
     const scanner = scannerRef.current;
     if (!scanner) return;
     if (scanner.isScanning) await scanner.stop();
     setCameraError(null);
+    setDiag('requesting camera...');
     try {
       await scanner.start(
         cameraTarget,
@@ -131,8 +146,12 @@ function ScanTab() {
         (decodedText) => void onDecoded(decodedText),
         () => {}
       );
+      setDiag('start() resolved: ' + describeVideoElement());
+      // The stream can take a beat to actually paint; recheck a moment later.
+      setTimeout(() => setDiag('after 1.5s: ' + describeVideoElement()), 1500);
     } catch (err: any) {
       setCameraError(err?.message || 'Camera not available. Type the UPC manually below.');
+      setDiag('start() threw: ' + (err?.name || '') + ' ' + (err?.message || String(err)));
     }
   }
 
@@ -220,6 +239,7 @@ function ScanTab() {
         style={{ width: '100%', borderRadius: 12, overflow: 'hidden', background: '#111', minHeight: 220 }}
       />
       {cameraError && <p style={{ color: '#ff9f0a', fontSize: 13 }}>{cameraError}</p>}
+      <p style={{ color: '#666', fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-word' }}>diag: {diag}</p>
 
       {cameras.length > 1 && (
         <label style={{ ...fieldLabel, marginTop: 8 }}>
