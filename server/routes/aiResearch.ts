@@ -1,14 +1,17 @@
 /**
  * AI research routes ported from Ebay-amazon-app/server.ts (7, 7b, 8, 8b).
- * Gemini output is an ESTIMATE: every response carries provenance "estimated_inferred_ai"
- * and none of it feeds the spread engine's "real spread" flag.
+ * Output comes from whichever of Gemini/OpenAI/Anthropic is configured
+ * (server/ai/orchestrator.ts) and is an ESTIMATE either way: every response
+ * carries provenance "estimated_inferred_ai" and none of it feeds the spread
+ * engine's "real spread" flag.
  */
 
 import { Router } from "express";
 import { amazonProvider } from "../marketplace/amazonProvider";
 import { amazonTokenManager } from "../marketplace/amazonTokenManager";
 import { calculateAmazonReferralFee } from "../../shared/fees";
-import { callGenAI, getCached, parseJsonResponse, setCached } from "../gemini";
+import { getCached, parseJsonResponse, setCached } from "../gemini";
+import { callGenAI } from "../ai/orchestrator";
 
 export const aiResearchRouter = Router();
 

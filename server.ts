@@ -13,6 +13,7 @@ import { learningRouter } from "./server/routes/learning";
 import { marketplaceCache } from "./server/marketplace/cache";
 import { cacheSize } from "./server/gemini";
 import { basicAuthMiddleware } from "./server/basicAuth";
+import { configuredProviders } from "./server/ai/orchestrator";
 
 dotenv.config({ path: [".env.local", ".env"] });
 
@@ -26,6 +27,7 @@ app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    aiProvidersConfigured: configuredProviders(),
     hasEbayCreds: Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET),
     hasAmazonCreds: Boolean(process.env.AMAZON_CREATORS_CREDENTIAL_ID && process.env.AMAZON_CREATORS_CREDENTIAL_SECRET),
     aiCacheSize: cacheSize(),
