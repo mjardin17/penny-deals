@@ -189,6 +189,30 @@ function ScanTab() {
     );
   }
 
+  // The scanning library calls videoElement.play() internally but never awaits or
+  // catches it -- if Safari silently rejects that call (autoplay policy, or the
+  // element wasn't "ready" yet), the library has no idea and the stream just sits
+  // there paused forever with no error anywhere. This retries play() ourselves and
+  // surfaces the real rejection reason instead of staying silently stuck.
+  async function forcePlay(label: string) {
+    const container = document.getElementById(readerId);
+    const video = container?.querySelector('video');
+    if (!video) {
+      setDiag(`${label}: ` + describeVideoElement());
+      return;
+    }
+    if (!video.paused) {
+      setDiag(`${label}: already playing -- ` + describeVideoElement());
+      return;
+    }
+    try {
+      await video.play();
+      setDiag(`${label}: play() succeeded -- ` + describeVideoElement());
+    } catch (err: any) {
+      setDiag(`${label}: play() REJECTED: ${err?.name || ''} ${err?.message || String(err)} -- ` + describeVideoElement());
+    }
+  }
+
   function startScan(cameraTarget: string | { facingMode: string }): Promise<void> {
     return queueOp(async () => {
       const scanner = scannerRef.current;
@@ -210,8 +234,19 @@ function ScanTab() {
           () => {}
         );
         setDiag('start() resolved: ' + describeVideoElement());
-        // The stream can take a beat to actually paint; recheck a moment later.
-        setTimeout(() => setDiag('after 1.5s: ' + describeVideoElement()), 1500);
+
+        // Retry play() when the browser actually signals it has data, instead of
+        // guessing with fixed delays -- and keep the delays too as a fallback in
+        // case those events never fire at all (which is itself diagnostic).
+        const video = document.getElementById(readerId)?.querySelector('video');
+        if (video) {
+          const onReady = () => void forcePlay(`event:${video.readyState >= 1 ? 'loadedmetadata' : 'canplay'}`);
+          video.addEventListener('loadedmetadata', onReady, { once: true });
+          video.addEventListener('canplay', onReady, { once: true });
+        }
+        setTimeout(() => forcePlay('after 500ms'), 500);
+        setTimeout(() => forcePlay('after 2s'), 2000);
+        setTimeout(() => forcePlay('after 5s'), 5000);
       } catch (err: any) {
         setCameraError(err?.message || 'Camera not available. Type the UPC manually below.');
         setDiag('start() threw: ' + (err?.name || '') + ' ' + (err?.message || String(err)));
