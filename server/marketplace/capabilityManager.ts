@@ -58,20 +58,6 @@ export class MarketplaceCapabilityManager {
       requiredCredentials: amazonCatalog.requiredCredentials,
     };
 
-    // AI Resale Intelligence Engine capability
-    const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
-    const resaleAi: CapabilityInfo = {
-      id: "resale_ai_estimation",
-      name: "Resale Intelligence & Cassini / FBA AI Estimation Model",
-      provider: "resale-ai",
-      state: hasGeminiKey ? "available" : "not_configured",
-      message: hasGeminiKey
-        ? "Gemini model cascade (gemini-2.5-flash / gemini-3.8-flash) active for real-time market estimation and listing optimization."
-        : "GEMINI_API_KEY is not configured.",
-      lastChecked: Date.now(),
-      requiredCredentials: ["GEMINI_API_KEY"],
-    };
-
     // Legacy status markers for deprecated APIs
     const deprecatedPaApi: CapabilityInfo = {
       id: "amazon_paapi_5",
@@ -101,7 +87,6 @@ export class MarketplaceCapabilityManager {
         ebay_catalog_matching: ebayCatalog,
         ebay_browse_search: ebayBrowse,
         ebay_marketplace_insights: ebayInsights,
-        resale_ai_estimation: resaleAi,
         amazon_paapi_5: deprecatedPaApi,
         ebay_product_api: deprecatedEbayProductApi,
       },

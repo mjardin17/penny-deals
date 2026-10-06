@@ -6,16 +6,18 @@
     <title>Penny Deals</title>
     <meta name="description" content="Scan a barcode in-store, get a live buy/don't-buy verdict." />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0f5c3f" />
+    <meta name="theme-color" content="#0b0b0d" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Penny Deals" />
     <link rel="icon" href="/icons/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/phone/main.tsx"></script>
+    <script type="module" src="/src/app/main.tsx"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {

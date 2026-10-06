@@ -12,7 +12,6 @@ import {
   CapabilityInfo,
   CapabilityState,
   ConfirmedSaleRecord,
-  EstimatedSaleMetrics,
   SalesHistoryQuery,
   SalesHistoryResult,
 } from "./types";
@@ -50,7 +49,7 @@ export class HybridSoldHistoryProvider implements SoldHistoryProvider {
       if (!hasCommercialApproval) {
         state = "restricted";
         message =
-          "eBay Marketplace Insights API (confirmed completed sold transactions) requires eBay Commercial Partner Tier approval and restricted scope authorization. Active listings are available via Browse API, while completed historical sales are estimated via our AI Resale Intelligence model.";
+          "eBay Marketplace Insights API (confirmed completed sold transactions) requires eBay Commercial Partner Tier approval and restricted scope authorization. Until then the app shows live active asking prices from the Browse API, labeled as asking prices. Sold prices are not estimated.";
       } else {
         state = "available";
         message = "eBay Marketplace Insights API authorized for confirmed historical transactions.";
@@ -135,30 +134,16 @@ export class HybridSoldHistoryProvider implements SoldHistoryProvider {
       }
     }
 
-    // When commercial API access is restricted or not configured, return explicit status
-    // and provide transparent estimated/inferred metrics with exact provenance labeling.
-    const estimatedResult: SalesHistoryResult = {
+    // Without approval there are no sold prices to show. Say so; never invent numbers in their place.
+    const unavailable: SalesHistoryResult = {
       query: input.query,
       marketplace,
       retrievedTimestamp: Date.now(),
-      provenance: "estimated_inferred_ai",
+      provenance: "unavailable",
       status: capability.state === "restricted" ? "restricted" : "not_configured",
       statusMessage: capability.message,
-      // No fake confirmedSales array! Only estimatedMetrics.
-      estimatedMetrics: {
-        medianSoldPrice: 0, // Caller or AI engine supplies estimated value
-        lowSoldComp: 0,
-        highSoldComp: 0,
-        estimatedUnitsSold90Days: 0,
-        estimatedSellThroughRatePct: 0,
-        demandVelocity: "Moderate",
-        confidenceScorePct: 75,
-        marketModelNotes:
-          "Statistical estimation derived from public catalog comps, category velocity algorithms, and historical pricing patterns. Not official eBay transaction logs.",
-      },
     };
-
-    return estimatedResult;
+    return unavailable;
   }
 }
 

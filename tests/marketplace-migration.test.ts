@@ -457,10 +457,12 @@ async function runTests() {
     assert.match(cap.message, /Commercial Partner Tier approval/);
 
     const history = await soldProvider.getSalesHistory({ query: "Game Boy Color" });
-    assert.equal(history.provenance, "estimated_inferred_ai");
+    assert.equal(history.provenance, "unavailable");
     assert.equal(history.status, "restricted");
     assert.equal(history.confirmedSales, undefined, "Must NOT fabricate confirmedSales array!");
-    assert(history.estimatedMetrics !== undefined);
+    assert.equal((history as any).estimatedMetrics, undefined, "Must NOT invent estimated sales metrics either");
+    assert.doesNotMatch(history.statusMessage, /estimated via|AI Resale/i, "must not promise AI estimates");
+    assert.match(history.statusMessage, /asking prices/i, "says what the app shows instead");
   });
 
   // 14. Full Capabilities Report

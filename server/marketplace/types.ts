@@ -13,7 +13,9 @@ export type CapabilityState =
 
 export type DataProvenance =
   | "confirmed_marketplace_api"
-  | "estimated_inferred_ai";
+  | "estimated_inferred_ai"
+  /** No data exists for this request; nothing is estimated in its place. */
+  | "unavailable";
 
 export interface CapabilityInfo {
   id: string;
@@ -140,17 +142,6 @@ export interface ConfirmedSaleRecord {
   listingType: "Buy It Now" | "Auction";
 }
 
-export interface EstimatedSaleMetrics {
-  medianSoldPrice: number;
-  lowSoldComp: number;
-  highSoldComp: number;
-  estimatedUnitsSold90Days: number;
-  estimatedSellThroughRatePct: number;
-  demandVelocity: "High Velocity" | "Moderate" | "Slow / Long Tail" | "Low Velocity";
-  confidenceScorePct: number;
-  marketModelNotes: string;
-}
-
 export interface SalesHistoryResult {
   query: string;
   marketplace: string;
@@ -159,7 +150,6 @@ export interface SalesHistoryResult {
   status: "success" | "restricted" | "not_configured" | "error";
   statusMessage: string;
   confirmedSales?: ConfirmedSaleRecord[];
-  estimatedMetrics?: EstimatedSaleMetrics;
 }
 
 /** Structured Cache Entry */
