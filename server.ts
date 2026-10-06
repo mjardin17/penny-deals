@@ -11,6 +11,9 @@ import { aiResearchRouter } from "./server/routes/aiResearch";
 import { arbitrageRouter } from "./server/routes/arbitrage";
 import { learningRouter } from "./server/routes/learning";
 import { createBrainRouter } from "./server/routes/brain";
+import { createIntegrationsRouter } from "./server/routes/integrations";
+import { createDealsRouter } from "./server/routes/deals";
+import { createCardsRouter } from "./server/routes/cards";
 import { rateLimit } from "./server/middleware/rateLimit";
 import { couponsRouter } from "./server/routes/coupons";
 import { marketplaceCache } from "./server/marketplace/cache";
@@ -48,6 +51,12 @@ app.use("/api/arbitrage", rateLimit({ windowMs: 60_000, max: 30 }));
 
 app.use("/api", learningRouter);
 app.use("/api", createBrainRouter());
+app.use("/api/integrations", rateLimit({ windowMs: 60_000, max: 30 }));
+app.use("/api", createIntegrationsRouter());
+app.use("/api/deals", rateLimit({ windowMs: 60_000, max: 20 }));
+app.use("/api", createDealsRouter());
+app.use("/api/cards", rateLimit({ windowMs: 60_000, max: 30 }));
+app.use("/api", createCardsRouter());
 app.use("/api", couponsRouter);
 
 app.use("/api", (_req, res) => {
