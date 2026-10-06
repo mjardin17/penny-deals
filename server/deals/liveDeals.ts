@@ -8,6 +8,8 @@ export interface LiveDealsResult {
   zip: string;
   place: string;
   hits: Gathered["hits"];
+  checked: Gathered["checked"];
+  others: Gathered["others"];
   sources: Gathered["sources"];
   /** When the deals were actually fetched from the sources. */
   fetchedAt: string;
@@ -47,7 +49,7 @@ export function createLiveDeals(deps: LiveDealsDeps) {
       if (dealSources.length > 0 && !dealSources.some((s) => s.state === "ok")) {
         throw new Error("Every deal source failed or was unavailable, so there is no real answer to show.");
       }
-      const result: LiveDealsResult = { zip, place: out.place, hits: out.hits, sources: out.sources, fetchedAt: new Date(t).toISOString() };
+      const result: LiveDealsResult = { zip, place: out.place, hits: out.hits, checked: out.checked, others: out.others, sources: out.sources, fetchedAt: new Date(t).toISOString() };
       cache.set(zip, { at: t, result });
       return result;
     } catch (err) {

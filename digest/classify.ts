@@ -7,7 +7,7 @@ import { PENNY_STORES, POKEMON_STORES, STORES } from "./config";
 import { nearestOf } from "./geo";
 import { DigestHit, HitKind, NearbyStore, RawPost, StoreKey } from "./types";
 
-const PRICE_RE = /\$\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\.\d{1,2})/g;
+const PRICE_RE = /\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?|\.\d{1,2})/g;
 const POKEMON_RE = /pok[eé]mon|\bptcg\b/i;
 /** Pokémon posts only count when they're about the trading card game, not video games. */
 const TCG_RE = /\b(?:tcg|ptcg|cards?|booster|elite trainer|etb|tin|blister|collection box|premium collection|build (?:&|and) battle|sleeved)\b/i;

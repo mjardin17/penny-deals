@@ -117,3 +117,29 @@ test("if a refresh fails, the last good answer is returned and marked stale", as
   const empty = createLiveDeals({ gather: async () => { throw new Error("down from the start"); }, now: () => 0, defaults: config });
   await assert.rejects(() => empty.get("02745"), /down from the start/);
 });
+
+test("reports how many posts were checked and keeps the unmatched ones, with their real prices", async () => {
+  const out = await gatherHits(config, NOW, deps({
+    fetchAllSlickdeals: async () => ({
+      posts: [
+        post("Pokémon TCG 30th Celebration Elite Trainer Box $83.44 at Walmart", 5),
+        post("Nike Air Max Shoes $40 + Free Shipping", 2),
+        post("Old unrelated deal $9", 90),
+      ],
+      errors: [],
+    }),
+  }));
+  assert.equal(out.checked, 2, "the 90-hour-old post is outside the window and not counted");
+  assert.equal(out.hits.length, 1);
+  assert.equal(out.others.length, 1);
+  assert.equal(out.others[0].post.title, "Nike Air Max Shoes $40 + Free Shipping");
+  assert.equal(out.others[0].price, 40);
+});
+
+test("the unmatched list is capped and newest first", async () => {
+  const many = Array.from({ length: 120 }, (_, i) => post(`Random thing ${i} $${i + 1}`, 1 + i / 100));
+  const out = await gatherHits(config, NOW, deps({ fetchAllSlickdeals: async () => ({ posts: many, errors: [] }) }));
+  assert.equal(out.checked, 120);
+  assert.equal(out.others.length, 60);
+  assert.equal(out.others[0].post.title, "Random thing 0 $1");
+});

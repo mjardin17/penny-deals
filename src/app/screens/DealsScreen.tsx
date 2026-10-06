@@ -18,10 +18,17 @@ interface Source {
   detail: string;
 }
 
+interface OtherPost {
+  post: Hit["post"];
+  price: number | null;
+}
+
 interface Feed {
   zip: string;
   place: string;
   hits: Hit[];
+  checked: number;
+  others: OtherPost[];
   sources: Source[];
   fetchedAt: string;
   stale?: boolean;
@@ -104,6 +111,7 @@ export function DealsScreen() {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showOthers, setShowOthers] = useState(false);
 
   // Only the newest request may update the screen, so a slow answer for an old ZIP can't overwrite a newer one.
   const latestRequest = useRef(0);
@@ -193,6 +201,12 @@ export function DealsScreen() {
         </>
       )}
 
+      {feed && !loading && (
+        <p className="pd-small" style={{ margin: 0 }}>
+          <strong>{feed.checked}</strong> posts checked, <strong>{feed.hits.length}</strong> matched penny, clearance or Pokémon at a store near you.
+        </p>
+      )}
+
       {!loading && feed && feed.hits.length === 0 && (
         <div className="pd-banner pd-banner--info">
           No new penny, clearance or Pokémon posts matched near {feed.place} in the last day and a half. That is a real answer, not an error. The sources checked are listed below.
@@ -224,6 +238,33 @@ export function DealsScreen() {
           <ResaleCheck hit={hit} />
         </article>
       ))}
+
+      {feed && feed.others.length > 0 && (
+        <div className="pd-stack">
+          <button className="pd-btn pd-btn--ghost" onClick={() => setShowOthers((v) => !v)} aria-expanded={showOthers}>
+            {showOthers ? "Hide everything else" : `Show everything else (${feed.others.length} of ${feed.checked - feed.hits.length})`}
+          </button>
+          {showOthers && (
+            <>
+              <p className="pd-small pd-muted" style={{ margin: 0 }}>
+                Real posts that did not match the filter, newest first. The price is only what the title says. Nothing here has been checked against a store.
+              </p>
+              {feed.others.map((o) => (
+                <article key={o.post.id + o.post.source} className="pd-card pd-hit">
+                  <div className="pd-spread">
+                    <span className="pd-chip">{o.post.source}</span>
+                    {o.price !== null && <div className="pd-hit__price">${o.price.toFixed(2)}</div>}
+                  </div>
+                  <div className="pd-hit__title">{o.post.title}</div>
+                  <a className="pd-small" style={{ color: "var(--pd-info)" }} href={o.post.url} target="_blank" rel="noreferrer">
+                    Open the post ({ago(o.post.publishedAt)})
+                  </a>
+                </article>
+              ))}
+            </>
+          )}
+        </div>
+      )}
 
       {feed && (
         <details className="pd-card">

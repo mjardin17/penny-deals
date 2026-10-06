@@ -18,7 +18,7 @@ async function serve(feed: Parameters<typeof createDealsRouter>[0]) {
   };
 }
 
-const sample = { zip: "02745", place: "X", hits: [], sources: [], fetchedAt: "2026-10-06T12:00:00.000Z" };
+const sample = { zip: "02745", place: "X", hits: [], checked: 0, others: [], sources: [], fetchedAt: "2026-10-06T12:00:00.000Z" };
 
 test("uses the default ZIP when none is given and passes a valid ZIP through", async () => {
   const asked: string[] = [];

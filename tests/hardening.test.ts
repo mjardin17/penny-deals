@@ -75,6 +75,8 @@ function gathered(states: Array<"ok" | "failed" | "skipped">): Gathered {
     origin: { lat: 0, lon: 0, place: "X" },
     place: "X",
     stores: [],
+    checked: 0,
+    others: [],
     hits: [],
     sources: [
       { name: "OpenStreetMap store locations", state: "ok", detail: "" },
@@ -139,4 +141,20 @@ test("the server listens on this computer only unless HOST is set", () => {
   assert.equal(resolveHost({ HOST: "0.0.0.0" }), "0.0.0.0");
   assert.equal(isExposed("127.0.0.1"), false);
   assert.equal(isExposed("0.0.0.0"), true);
+});
+
+test("the deals feed passes the checked count and other posts through", async () => {
+  const g = gathered(["ok"]);
+  const feed = createLiveDeals({ gather: async () => ({ ...g, checked: 7, others: [] }), now: () => 1, defaults: CONFIG });
+  const r = await feed.get("02745");
+  assert.equal(r.checked, 7);
+  assert.deepEqual(r.others, []);
+});
+
+import { extractPrice } from "../digest/classify";
+test("four-digit prices without a comma are read in full", () => {
+  assert.equal(extractPrice("Navimow x430 Robot lawnmower $2099"), 2099);
+  assert.equal(extractPrice("Laptop $1,299.99"), 1299.99);
+  assert.equal(extractPrice("Thing $12345.50"), 12345.5);
+  assert.equal(extractPrice("Cheap $.99"), 0.99);
 });
