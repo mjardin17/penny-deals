@@ -23,6 +23,14 @@ interface LoggedSpreadReport {
   checkedAt: string;
   predictionId: string;
   confidenceLabel: string | null;
+  /** Prices you typed for this item before this check. */
+  yourPriceHistory?: { count: number; last?: PricePoint; lowest?: PricePoint };
+}
+
+interface PricePoint {
+  price: number;
+  store?: string;
+  seenAt: number;
 }
 
 interface PendingPrediction {
@@ -81,7 +89,8 @@ function CouponBadge({ merchant }: { merchant?: string }) {
   );
 }
 
-function VerdictCard({ report, store }: { report: LoggedSpreadReport; store?: string }) {
+function VerdictCard({ report, store, onWrongMatch }: { report: LoggedSpreadReport; store?: string; onWrongMatch?: (matchUrl: string) => void }) {
+  const mine = report.yourPriceHistory;
   const best = report.bestRealSpread ?? report.channels.find((c) => c.status === 'ok');
   const isBuy = Boolean(report.bestRealSpread);
 
@@ -117,6 +126,14 @@ function VerdictCard({ report, store }: { report: LoggedSpreadReport; store?: st
               View matched listing
             </a>
           )}
+          {best.matchUrl && onWrongMatch && (
+            <button
+              onClick={() => onWrongMatch(best.matchUrl as string)}
+              style={{ display: 'block', marginTop: 6, background: 'none', border: 'none', padding: 0, color: '#ff9f0a', fontSize: 12, textDecoration: 'underline' }}
+            >
+              Not the same item (never use it again)
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ marginTop: 10, fontSize: 14, color: '#f5f5f7' }}>
@@ -125,6 +142,13 @@ function VerdictCard({ report, store }: { report: LoggedSpreadReport; store?: st
               {CHANNEL_LABELS[c.channel]}: {c.statusMessage}
             </div>
           ))}
+        </div>
+      )}
+      {mine && mine.count > 0 && mine.last && (
+        <div style={{ marginTop: 10, fontSize: 12, color: '#ccc' }}>
+          Before this check you saved {mine.count} price(s) for this item. Last ${mine.last.price.toFixed(2)}
+          {mine.last.store ? ` at ${mine.last.store}` : ''}
+          {mine.lowest && mine.count > 1 ? `. Lowest $${mine.lowest.price.toFixed(2)}${mine.lowest.store ? ` at ${mine.lowest.store}` : ''}` : ''}.
         </div>
       )}
       <CouponBadge merchant={store} />
@@ -152,6 +176,7 @@ function ScanTab() {
   const [report, setReport] = useState<LoggedSpreadReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [diag, setDiag] = useState('not started');
+  const [notice, setNotice] = useState<string | null>(null);
   const scannerRef = useRef<import('html5-qrcode').Html5Qrcode | null>(null);
   // Serializes every start()/stop() call on the scanner so React StrictMode's
   // double-invoked effect (mount -> cleanup -> mount, in dev mode) can never
@@ -319,6 +344,21 @@ function ScanTab() {
     await startScan(selectedCameraId || { facingMode: 'environment' });
   }
 
+  async function markWrongMatch(matchUrl: string) {
+    try {
+      const res = await fetch('/api/brain/outcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'wrong_match', title: title.trim(), upc: upc || undefined, matchUrl }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      setNotice("Got it. That listing won't be used for this item again. Check again for a new match.");
+    } catch (err) {
+      setNotice(`Could not save that: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   async function checkSpread() {
     const price = Number(buyPrice);
     if (!title.trim()) return setError('Enter a title (or scan a barcode first).');
@@ -331,7 +371,7 @@ function ScanTab() {
       const res = await fetch('/api/arbitrage/spread', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), buyPrice: price, upc: upc || undefined, store: store || undefined, category: CATEGORY, source: 'penny-scan' }),
+        body: JSON.stringify({ title: title.trim(), buyPrice: price, upc: upc || undefined, store: store || undefined, category: CATEGORY, source: 'penny-scan', priceIsUserTyped: true }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Spread check failed');
@@ -401,7 +441,8 @@ function ScanTab() {
         {error && <p style={{ color: '#ff453a', fontSize: 13 }}>{error}</p>}
       </div>
 
-      {report && <VerdictCard report={report} store={store} />}
+      {notice && <p style={{ marginTop: 10, fontSize: 13, color: '#ff9f0a' }}>{notice}</p>}
+      {report && <VerdictCard report={report} store={store} onWrongMatch={markWrongMatch} />}
     </div>
   );
 }
