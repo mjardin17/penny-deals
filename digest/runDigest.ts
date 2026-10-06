@@ -6,13 +6,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import dotenv from "dotenv";
-import { loadConfig, SLICKDEALS_QUERIES, DigestConfig } from "./config";
-import { fetchAllSlickdeals } from "./sources/slickdeals";
-import { fetchReddit } from "./sources/reddit";
-import { geocodeZip, loadNearbyStores } from "./geo";
-import { classifyPost, sortClosestFirst } from "./classify";
+import { loadConfig, DigestConfig } from "./config";
+import { gatherHits } from "./gather";
 import { renderDigest } from "./render";
-import { DigestHit, NearbyStore, RawPost, SourceStatus } from "./types";
+import { DigestHit, SourceStatus } from "./types";
 import { findSpreadAndLog } from "../server/learning/loggedSpread";
 import { renderLearningSummary, runWeeklyLearningPass } from "../server/learning/weeklyPass";
 import { aggregateCoupons } from "../server/coupons/aggregator";
@@ -68,34 +65,10 @@ async function addResaleChecks(hits: DigestHit[]): Promise<SourceStatus> {
 export async function runDigest(config: DigestConfig, now = new Date()): Promise<{ file: string; hits: DigestHit[] }> {
   const sources: SourceStatus[] = [];
 
-  const origin = await geocodeZip(config.zip);
-  let stores: NearbyStore[] = [];
-  try {
-    const loaded = await loadNearbyStores(config.zip, origin, config.radiusMiles, config.cacheDir);
-    stores = loaded.stores;
-    sources.push({
-      name: "OpenStreetMap store locations",
-      state: "ok",
-      detail: `${stores.length} stores${loaded.fromCache ? " (cached)" : ""}`,
-    });
-  } catch (err) {
-    sources.push({ name: "OpenStreetMap store locations", state: "failed", detail: `${String(err)}. Distances unavailable.` });
-  }
-
-  const sd = await fetchAllSlickdeals(SLICKDEALS_QUERIES);
-  sources.push({
-    name: "Slickdeals",
-    state: sd.posts.length ? "ok" : "failed",
-    detail: `${sd.posts.length} posts from ${SLICKDEALS_QUERIES.length} searches${sd.errors.length ? `; errors: ${sd.errors.join("; ")}` : ""}`,
-  });
-
-  const reddit = await fetchReddit(config.redditSubs);
-  sources.push(reddit.status);
+  const gathered = await gatherHits(config, now);
+  const { origin, stores, hits } = gathered;
+  sources.push(...gathered.sources);
   sources.push(...NOT_AUTOMATED);
-
-  const cutoff = now.getTime() - config.lookbackHours * 3600_000;
-  const posts: RawPost[] = [...sd.posts, ...reddit.posts].filter((p) => p.publishedAt.getTime() >= cutoff);
-  const hits = sortClosestFirst(posts.flatMap((p) => classifyPost(p, stores) ?? []));
 
   sources.push(await addResaleChecks(hits));
 
