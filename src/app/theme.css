@@ -93,7 +93,7 @@
     margin: 0 8px 22px;
   }
   .pd-nav__brand span { color: var(--pd-accent); display: block; }
-  .pd-nav__item { grid-auto-flow: column; justify-content: start; justify-items: start; gap: 12px; padding: 12px 14px; font-size: 14px; }
+  .pd-nav__item { flex: none; grid-auto-flow: column; justify-content: start; justify-items: start; align-items: center; gap: 12px; padding: 12px 14px; font-size: 14px; }
   .pd-nav__item svg { width: 20px; height: 20px; }
   .pd-main { padding: 34px 36px 60px; max-width: 880px; margin: 0; }
 }

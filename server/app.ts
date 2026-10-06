@@ -22,6 +22,12 @@ export function createApp(): Express {
   const app = express();
 
   app.use(express.json({ limit: "1mb" }));
+
+  // "/api//cards/identify" would skip the limiters below (they match on the exact prefix), so refuse odd paths outright.
+  app.use((req, res, next) => {
+    if (/\/{2,}/.test(req.path)) return res.status(404).json({ success: false, error: "Unknown API route" });
+    next();
+  });
   app.use(basicAuthMiddleware(process.env.TUNNEL_BASIC_AUTH_USER, process.env.TUNNEL_BASIC_AUTH_PASS));
 
   app.get("/api/health", (_req, res) => {

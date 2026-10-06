@@ -4,45 +4,16 @@
  * Prices that are missing or malformed are dropped, never replaced with a number.
  */
 
+import { CardApiError, createFetcher, FetcherOptions } from "./http";
+import { CardHint, PokemonCard, PriceBlock } from "./types";
+
+export { CardApiError } from "./http";
+export type { CardHint, PokemonCard, PriceBlock } from "./types";
+
 const BASE_URL = "https://api.pokemontcg.io/v2";
 const FIELDS = "id,name,number,rarity,set,images,tcgplayer,cardmarket";
 const ID_PATTERN = /^[A-Za-z0-9.-]{1,24}$/;
 const MAX_NAME = 40;
-
-export class CardApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string
-  ) {
-    super(message);
-    this.name = "CardApiError";
-  }
-}
-
-export interface CardHint {
-  name?: string;
-  number?: string;
-  printedTotal?: string;
-}
-
-export interface PriceBlock {
-  source: "tcgplayer" | "cardmarket";
-  currency: "USD" | "EUR";
-  updatedAt?: string;
-  url?: string;
-  variants: Record<string, Record<string, number>>;
-}
-
-export interface PokemonCard {
-  id: string;
-  name: string;
-  number: string;
-  rarity?: string;
-  set: { id: string; name: string; series?: string; printedTotal?: number; releaseDate?: string };
-  image?: string;
-  tcgplayer?: PriceBlock;
-  cardmarket?: PriceBlock;
-}
 
 /** "4/102", "004/102" and "SV049/SV122" all work; a bare number works too. */
 export function parseCardNumber(text: string): { number: string; printedTotal: string | undefined } | null {
@@ -116,41 +87,26 @@ function normalizeCard(raw: any): PokemonCard {
       releaseDate: typeof raw.set.releaseDate === "string" ? raw.set.releaseDate : undefined,
     },
     image: typeof raw.images?.small === "string" ? raw.images.small : undefined,
+    source: "pokemontcg.io",
     tcgplayer: normalizePrices(raw.tcgplayer, "tcgplayer"),
     cardmarket: normalizePrices(raw.cardmarket, "cardmarket"),
   };
 }
 
-export interface PokemonTcgOptions {
-  fetchImpl?: typeof fetch;
+export interface PokemonTcgOptions extends Omit<FetcherOptions, "headers"> {
   apiKey?: string;
   baseUrl?: string;
-  timeoutMs?: number;
 }
 
 export function createPokemonTcgClient(options: PokemonTcgOptions = {}) {
-  const fetchImpl = options.fetchImpl ?? fetch;
   const baseUrl = options.baseUrl ?? BASE_URL;
-  const timeoutMs = options.timeoutMs ?? 10_000;
-  const headers: Record<string, string> = { Accept: "application/json", ...(options.apiKey ? { "X-Api-Key": options.apiKey } : {}) };
-
-  async function request(url: string): Promise<{ status: number; body: any }> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetchImpl(url, { headers, signal: controller.signal });
-      if (res.status === 404) return { status: 404, body: null };
-      if (res.status === 429) throw new CardApiError(429, "The card database is rate limiting requests (rate limit). Try again in a minute.");
-      if (!res.ok) throw new CardApiError(res.status, `The card database had an error (HTTP ${res.status}).`);
-      return { status: res.status, body: await res.json() };
-    } catch (err) {
-      if (err instanceof CardApiError) throw err;
-      if (controller.signal.aborted) throw new CardApiError(0, "The card database did not answer in time (timed out).");
-      throw new CardApiError(0, "Could not reach the card database.");
-    } finally {
-      clearTimeout(timer);
-    }
-  }
+  // No Accept header on purpose: api.pokemontcg.io answers HTTP 500 to "Accept: application/json" (checked 2026-10-06)
+  // but works without it. It always returns JSON anyway. The service also fails at random (roughly 4 calls in 10), which
+  // the shared fetcher retries.
+  const { getJson: request } = createFetcher({
+    ...options,
+    headers: { "User-Agent": "PennyDeals/1.0 (personal reselling tool)", ...(options.apiKey ? { "X-Api-Key": options.apiKey } : {}) },
+  });
 
   async function search(hint: CardHint, limit = 8): Promise<PokemonCard[]> {
     const parts: string[] = [];

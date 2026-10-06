@@ -108,7 +108,9 @@ export function DealsScreen() {
     setLoading(true);
     setError(null);
     try {
-      setFeed(await getJson<Feed>(`/api/deals/today${z ? `?zip=${encodeURIComponent(z)}` : ""}`));
+      const data = await getJson<Feed>(`/api/deals/today${z ? `?zip=${encodeURIComponent(z)}` : ""}`);
+      setFeed(data);
+      setInput((current) => current || data.zip);
     } catch (err) {
       setFeed(null);
       setError(messageOf(err));
@@ -169,6 +171,9 @@ export function DealsScreen() {
 
       {loading && (
         <>
+          <p className="pd-small pd-muted" role="status" style={{ margin: 0 }}>
+            Checking live posts and nearby stores. The first search can take up to half a minute.
+          </p>
           <div className="pd-skeleton" />
           <div className="pd-skeleton" />
         </>

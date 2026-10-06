@@ -106,11 +106,98 @@ test("sends the API key only when one is configured, as a header and never in th
   assert.equal(headers["X-Api-Key"], undefined);
 });
 
+test("never sends an Accept header (the card service answers HTTP 500 to it) and identifies itself", async () => {
+  let headers: Record<string, string> = {};
+  const f = (async (_u: string, init?: RequestInit) => {
+    headers = (init?.headers ?? {}) as Record<string, string>;
+    return new Response(JSON.stringify({ data: [] }));
+  }) as unknown as typeof fetch;
+  await createPokemonTcgClient({ fetchImpl: f }).search({ name: "Mew" });
+  assert.equal(Object.keys(headers).some((k) => k.toLowerCase() === "accept"), false);
+  assert.match(headers["User-Agent"] ?? "", /PennyDeals/);
+});
+
+const noSleep = async () => {};
+
 test("rate limits, outages and timeouts become clear errors", async () => {
-  await assert.rejects(() => createPokemonTcgClient({ fetchImpl: api({}, 429) }).search({ name: "Mew" }), (e: unknown) => e instanceof CardApiError && /rate/i.test(e.message));
-  await assert.rejects(() => createPokemonTcgClient({ fetchImpl: api({}, 503) }).search({ name: "Mew" }), (e: unknown) => e instanceof CardApiError && e.status === 503);
+  await assert.rejects(() => createPokemonTcgClient({ fetchImpl: api({}, 429), sleep: noSleep }).search({ name: "Mew" }), (e: unknown) => e instanceof CardApiError && /rate/i.test(e.message));
+  await assert.rejects(() => createPokemonTcgClient({ fetchImpl: api({}, 503), sleep: noSleep }).search({ name: "Mew" }), (e: unknown) => e instanceof CardApiError && e.status === 503);
   const hang = (async (_u: string, init?: RequestInit) => new Promise((_r, rej) => init?.signal?.addEventListener("abort", () => rej(new Error("aborted"))))) as unknown as typeof fetch;
-  await assert.rejects(() => createPokemonTcgClient({ fetchImpl: hang, timeoutMs: 30 }).search({ name: "Mew" }), /time/i);
+  await assert.rejects(() => createPokemonTcgClient({ fetchImpl: hang, timeoutMs: 30, sleep: noSleep }).search({ name: "Mew" }), /time/i);
+});
+
+/** A fake service that answers with the given statuses in order, then repeats the last one. */
+function sequence(statuses: number[]) {
+  const state = { calls: 0 };
+  const f = (async () => {
+    const status = statuses[Math.min(state.calls, statuses.length - 1)];
+    state.calls++;
+    return new Response(JSON.stringify(status === 200 ? { data: [CHARIZARD] } : { error: "x" }), { status });
+  }) as unknown as typeof fetch;
+  return { f, state };
+}
+
+test("the card service fails at random, so a failed call is retried and the person never sees it", async () => {
+  const { f, state } = sequence([500, 500, 200]);
+  const cards = await createPokemonTcgClient({ fetchImpl: f, sleep: noSleep }).search({ name: "Charizard" });
+  assert.equal(cards.length, 1);
+  assert.equal(state.calls, 3);
+});
+
+test("it gives up after four tries and says the service is struggling", async () => {
+  const { f, state } = sequence([500]);
+  await assert.rejects(() => createPokemonTcgClient({ fetchImpl: f, sleep: noSleep }).search({ name: "Charizard" }), (e: unknown) => e instanceof CardApiError && e.status === 500);
+  assert.equal(state.calls, 4);
+});
+
+test("errors that retrying cannot fix (bad request, not found, rate limit) are not retried", async () => {
+  for (const status of [400, 404, 429]) {
+    const { f, state } = sequence([status]);
+    await createPokemonTcgClient({ fetchImpl: f, sleep: noSleep }).search({ name: "Charizard" }).catch(() => undefined);
+    assert.equal(state.calls, 1, `HTTP ${status} must not be retried`);
+  }
+});
+
+test("a timeout is retried too", async () => {
+  let calls = 0;
+  const f = (async (_u: string, init?: RequestInit) => {
+    calls++;
+    if (calls === 1) return new Promise((_r, rej) => init?.signal?.addEventListener("abort", () => rej(new Error("aborted"))));
+    return new Response(JSON.stringify({ data: [CHARIZARD] }));
+  }) as unknown as typeof fetch;
+  const cards = await createPokemonTcgClient({ fetchImpl: f, timeoutMs: 30, sleep: noSleep }).search({ name: "Charizard" });
+  assert.equal(cards.length, 1);
+  assert.equal(calls, 2);
+});
+
+test("waits a little longer between each retry", async () => {
+  const waits: number[] = [];
+  const { f } = sequence([500]);
+  await createPokemonTcgClient({ fetchImpl: f, sleep: async (ms) => void waits.push(ms) }).search({ name: "Charizard" }).catch(() => undefined);
+  assert.equal(waits.length, 3);
+  assert.ok(waits[0] < waits[1] && waits[1] < waits[2], `waits should grow: ${waits}`);
+});
+
+test("a recent identical lookup is answered from memory, and memory expires", async () => {
+  let t = 1_000;
+  const { f, state } = sequence([200]);
+  const client = createPokemonTcgClient({ fetchImpl: f, sleep: noSleep, now: () => t });
+  await client.search({ name: "Charizard" });
+  await client.search({ name: "Charizard" });
+  assert.equal(state.calls, 1);
+  await client.search({ name: "Pikachu" });
+  assert.equal(state.calls, 2, "a different search is a different lookup");
+  t += 11 * 60_000;
+  await client.search({ name: "Charizard" });
+  assert.equal(state.calls, 3, "after ten minutes it asks again");
+});
+
+test("failures are never remembered", async () => {
+  const { f, state } = sequence([400, 200]);
+  const client = createPokemonTcgClient({ fetchImpl: f, sleep: noSleep });
+  await client.search({ name: "Charizard" }).catch(() => undefined);
+  await client.search({ name: "Charizard" });
+  assert.equal(state.calls, 2);
 });
 
 test("an unexpected response shape is an error, not an empty answer", async () => {

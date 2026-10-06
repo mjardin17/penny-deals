@@ -73,6 +73,9 @@ export async function valueCard(card: PokemonCard, deps: ValueDeps): Promise<Car
 
   if (card.tcgplayer?.updatedAt) notes.push(`Database prices are TCGplayer's, last updated ${card.tcgplayer.updatedAt}.`);
   notes.push("Sold prices need eBay Marketplace Insights approval, so eBay figures here are asking prices, not what cards actually sold for.");
+  if (ebayRaw || ebayPsa10) {
+    notes.push("The lowest asking price is often a damaged, mislabeled or fake listing. The middle price is the steadier guide.");
+  }
 
   const database = card.tcgplayer || card.cardmarket ? { tcgplayer: card.tcgplayer, cardmarket: card.cardmarket } : null;
   return { database, ebayRaw, ebayPsa10, notes };

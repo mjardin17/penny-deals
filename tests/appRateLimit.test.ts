@@ -63,3 +63,15 @@ test("health reports what is configured without revealing any value", async () =
     await s.close();
   }
 });
+
+test("a double slash cannot be used to skip the rate limiters", async () => {
+  const s = await serve();
+  try {
+    for (const path of ["/api//deals/today", "/api//cards/identify", "/api///arbitrage/spread"]) {
+      const res = await post(`${s.base}${path}`, {});
+      assert.equal(res.status, 404, path);
+    }
+  } finally {
+    await s.close();
+  }
+});

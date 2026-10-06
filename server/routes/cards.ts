@@ -2,6 +2,8 @@ import path from "node:path";
 import { Router, Response } from "express";
 import { ebayMarketplaceProvider } from "../marketplace/ebayProvider";
 import { CardApiError, createPokemonTcgClient, parseCardNumber, PokemonCard } from "../cards/pokemonTcg";
+import { createTcgdexClient } from "../cards/tcgdex";
+import { createCardDatabase } from "../cards/database";
 import { PhotoInput, PhotoRead, readCardPhoto, VisionNotConfigured } from "../cards/vision";
 import { CardValue, valueCard, ValueDeps } from "../cards/value";
 import { FileGradeLog, GradeLog, GradeLogInputError } from "../cards/gradeLog";
@@ -16,7 +18,11 @@ export interface CardsDeps {
 let sharedLog: GradeLog | null = null;
 
 export function liveCardsDeps(): CardsDeps {
-  const tcg = createPokemonTcgClient({ apiKey: process.env.POKEMONTCG_API_KEY?.trim() || undefined });
+  // TCGdex first (steady), pokemontcg.io as the backup (it fails at random but has more detail).
+  const tcg = createCardDatabase([
+    { prefix: "tcgdex", db: createTcgdexClient() },
+    { prefix: "ptcg", db: createPokemonTcgClient({ apiKey: process.env.POKEMONTCG_API_KEY?.trim() || undefined }) },
+  ]);
   const ebay: ValueDeps = {
     ebaySearch: (q) => ebayMarketplaceProvider.searchBrowseItems(q, { limit: 50, filter: "buyingOptions:{FIXED_PRICE}" }),
   };
@@ -93,7 +99,7 @@ export function createCardsRouter(deps: CardsDeps = liveCardsDeps()): Router {
   });
 
   router.get("/cards/card/:id", async (req, res) => {
-    if (!/^[A-Za-z0-9.-]{1,24}$/.test(req.params.id)) return res.status(400).json({ success: false, error: "That card id doesn't look right." });
+    if (!/^(?:[a-z0-9]{2,12}:)?[A-Za-z0-9.-]{1,24}$/.test(req.params.id)) return res.status(400).json({ success: false, error: "That card id doesn't look right." });
     try {
       const card = await deps.tcg.get(req.params.id);
       if (!card) return res.status(404).json({ success: false, error: "No card with that id." });
