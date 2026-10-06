@@ -44,7 +44,8 @@ function money(n: number): string {
   return `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`;
 }
 
-function NumberField(props: { label: string; value: number; step?: number; onChange: (n: number) => void }) {
+/** value null = the box is empty. onBlank (when given) is called if the person clears the box. */
+function NumberField(props: { label: string; value: number | null; step?: number; onChange: (n: number) => void; onBlank?: () => void }) {
   return (
     <label className="block">
       <span className={labelCls}>{props.label}</span>
@@ -52,8 +53,8 @@ function NumberField(props: { label: string; value: number; step?: number; onCha
         type="number"
         min={0}
         step={props.step ?? 0.01}
-        value={Number.isFinite(props.value) ? props.value : ""}
-        onChange={(e) => props.onChange(Math.max(0, parseFloat(e.target.value) || 0))}
+        value={props.value !== null && Number.isFinite(props.value) ? props.value : ""}
+        onChange={(e) => (e.target.value === "" && props.onBlank ? props.onBlank() : props.onChange(Math.max(0, parseFloat(e.target.value) || 0)))}
         className={inputCls}
       />
     </label>
@@ -159,8 +160,9 @@ const ChannelCard: React.FC<{ outcome: ChannelOutcome; best: boolean }> = ({ out
 }
 
 export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) => {
-  const [salePrice, setSalePrice] = useState(prefill?.salePrice ?? 29.99);
-  const [cogs, setCogs] = useState(prefill?.buyPrice ?? 5);
+  // Start empty: a made-up sale price or cost would show made-up profit. Numbers only appear once you type real ones.
+  const [salePrice, setSalePrice] = useState<number | null>(prefill?.salePrice ?? null);
+  const [cogs, setCogs] = useState<number | null>(prefill?.buyPrice ?? null);
   const [buyerShipping, setBuyerShipping] = useState(0);
   const [weightLb, setWeightLb] = useState(1);
   const [dims, setDims] = useState({ lengthIn: 10, widthIn: 8, heightIn: 4 });
@@ -175,7 +177,10 @@ export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) =
   const [tiktokCategory, setTiktokCategory] = useState<TiktokCategory>("standard");
   const [tiktokAffiliatePct, setTiktokAffiliatePct] = useState(0);
 
+  const hasInputs = salePrice !== null && salePrice > 0 && cogs !== null;
+
   const outcomes = useMemo<ChannelOutcome[]>(() => {
+    if (salePrice === null || salePrice <= 0 || cogs === null) return [];
     const shared: Omit<ProfitInput, "channel" | "salePrice"> = {
       cogs,
       buyerShipping,
@@ -220,8 +225,8 @@ export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) =
       </header>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
-        <NumberField label="Sale price" value={salePrice} onChange={setSalePrice} />
-        <NumberField label="Your cost (COGS)" value={cogs} onChange={setCogs} />
+        <NumberField label="Sale price" value={salePrice} onChange={setSalePrice} onBlank={() => setSalePrice(null)} />
+        <NumberField label="Your cost (COGS)" value={cogs} onChange={setCogs} onBlank={() => setCogs(null)} />
         <NumberField label="Buyer-paid shipping" value={buyerShipping} onChange={setBuyerShipping} />
         <NumberField label="Handling / packaging" value={handling} onChange={setHandling} />
         <NumberField label="Weight (lb)" value={weightLb} step={0.05} onChange={setWeightLb} />
@@ -265,6 +270,11 @@ export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) =
         </div>
       </details>
 
+      {!hasInputs && (
+        <p className="text-xs text-[#92929d] m-0 mb-1" role="status">
+          Enter a sale price (above $0) and your cost to see the numbers. Nothing is assumed for you.
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         {outcomes.map((o) => (
           <ChannelCard key={o.channel} outcome={o} best={o.channel === bestChannel && (o.result?.netProfit ?? 0) > 0} />

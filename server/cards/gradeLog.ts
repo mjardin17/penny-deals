@@ -93,7 +93,7 @@ export class GradeLog {
   }
 
   record(input: { cardId: unknown; company: unknown; grade: unknown; centering?: { horizontal: unknown; vertical: unknown } }): void {
-    if (typeof input.cardId !== "string" || !/^[\w.-]{1,40}$/.test(input.cardId)) throw new GradeLogInputError("cardId is required.");
+    if (typeof input.cardId !== "string" || !/^(?:[a-z0-9]{2,12}:)?[\w.-]{1,40}$/.test(input.cardId)) throw new GradeLogInputError("cardId is required.");
     if (!COMPANIES.includes(input.company as Company)) throw new GradeLogInputError(`company must be one of ${COMPANIES.join(", ")}.`);
     const g = input.grade;
     if (typeof g !== "number" || !Number.isFinite(g) || g < 1 || g > 10 || (g * 2) % 1 !== 0) {

@@ -8,7 +8,7 @@ Penny and clearance hunting app, with the arbitrage engine from `Ebay-amazon-app
 npm install
 cp .env.example .env.local   # fill in what you have
 npm run dev                  # http://localhost:3000 (Express + Vite)
-npm test                     # fee, spread-engine and digest tests
+npm test                     # fees, spread engine, digest, cards, brain, routes and screens' helpers
 npm run typecheck && npm run build && npm start
 ```
 
@@ -53,3 +53,11 @@ Clicking a deal in any hub prefills the Spread Finder.
 | USPS commercial postage (Jul 12 2026) | USPS Notice 123 (official) |
 
 Source URLs are in `shared/fees/meta.ts` and at `GET /api/fees/sources`. Re-check them when a platform announces a fee change.
+
+## Safety rules the app enforces
+
+- **Real data only.** A price of $0, an empty price or a made-up default is refused (shelf price, sold price, Profit calculator start empty). If every deal source fails, the Deals screen says so instead of showing "no deals".
+- **Limits.** Card photo reads: 5 per minute per device plus `GEMINI_DAILY_CAP` per day. Other routes have their own per-minute limits (see `server/app.ts`).
+- **Coupon links** must be https; anything else is refused when saved and never shown as a link.
+- **Binding.** The server listens on 127.0.0.1 by default. `HOST=0.0.0.0` opens it to the network and prints a warning unless a Basic Auth password is set.
+- **Keys** live only in `.env` / `.env.local` (git-ignored). `GEMINI_API_KEY` must be empty, not a placeholder, when you have none.

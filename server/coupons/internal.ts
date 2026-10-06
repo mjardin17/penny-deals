@@ -46,11 +46,13 @@ export function validateNewCoupon(raw: any): NewCoupon | string {
   if (typeof raw.affiliateUrl !== "string" || !raw.affiliateUrl.trim()) return "affiliateUrl is required";
   const expires = new Date(raw.expiresAt);
   if (!raw.expiresAt || Number.isNaN(expires.getTime())) return "expiresAt must be a valid ISO date";
+  let link: URL;
   try {
-    new URL(raw.affiliateUrl);
+    link = new URL(raw.affiliateUrl);
   } catch {
     return "affiliateUrl must be a valid URL";
   }
+  if (link.protocol !== "https:") return "affiliateUrl must be an https link";
   return {
     code: raw.code.trim(),
     merchant: raw.merchant.trim(),

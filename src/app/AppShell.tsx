@@ -5,6 +5,7 @@ import { DealsScreen } from "./screens/DealsScreen";
 import { CardsScreen } from "./screens/CardsScreen";
 import { ConnectionsScreen } from "./screens/ConnectionsScreen";
 import { MoreScreen } from "./screens/MoreScreen";
+import { ErrorBoundary } from "./ErrorBoundary";
 import "./theme.css";
 
 const ROUTES = [
@@ -51,12 +52,15 @@ export function AppShell() {
       </nav>
       <main className="pd-main">
         {/* Screens that use the camera are only mounted while visible, so the camera is released when you leave. */}
-        {route === "scan" && <ScanScreen />}
-        {route === "deals" && <DealsScreen />}
-        {route === "cards" && <CardsScreen />}
-        {route === "mine" && <MineScreen />}
-        {route === "connections" && <ConnectionsScreen />}
-        {route === "more" && <MoreScreen />}
+        {/* Keyed by route so leaving a crashed screen clears the error. */}
+        <ErrorBoundary key={route}>
+          {route === "scan" && <ScanScreen />}
+          {route === "deals" && <DealsScreen />}
+          {route === "cards" && <CardsScreen />}
+          {route === "mine" && <MineScreen />}
+          {route === "connections" && <ConnectionsScreen />}
+          {route === "more" && <MoreScreen />}
+        </ErrorBoundary>
       </main>
     </div>
   );

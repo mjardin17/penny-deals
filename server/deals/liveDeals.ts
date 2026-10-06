@@ -24,13 +24,29 @@ export interface LiveDealsDeps {
 export function createLiveDeals(deps: LiveDealsDeps) {
   const cache = new Map<string, { at: number; result: LiveDealsResult }>();
 
-  async function get(zip: string): Promise<LiveDealsResult> {
-    if (!ZIP.test(zip)) throw new Error("ZIP must be 5 digits.");
+  // Requests that arrive while a lookup for the same ZIP is running share it instead of starting their own.
+  const inFlight = new Map<string, Promise<LiveDealsResult>>();
+
+  function get(zip: string): Promise<LiveDealsResult> {
+    if (!ZIP.test(zip)) return Promise.reject(new Error("ZIP must be 5 digits."));
+    const running = inFlight.get(zip);
+    if (running) return running;
+    const started = fetchFresh(zip).finally(() => inFlight.delete(zip));
+    inFlight.set(zip, started);
+    return started;
+  }
+
+  async function fetchFresh(zip: string): Promise<LiveDealsResult> {
     const t = deps.now();
     const cached = cache.get(zip);
     if (cached && t - cached.at < CACHE_MS) return cached.result;
     try {
       const out = await deps.gather({ ...deps.defaults, zip }, new Date(t));
+      // Store locations are not deals. If no deal source answered, "no deals" would be a lie, so fail instead of caching it.
+      const dealSources = out.sources.filter((s) => !s.name.includes("OpenStreetMap"));
+      if (dealSources.length > 0 && !dealSources.some((s) => s.state === "ok")) {
+        throw new Error("Every deal source failed or was unavailable, so there is no real answer to show.");
+      }
       const result: LiveDealsResult = { zip, place: out.place, hits: out.hits, sources: out.sources, fetchedAt: new Date(t).toISOString() };
       cache.set(zip, { at: t, result });
       return result;

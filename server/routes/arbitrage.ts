@@ -23,8 +23,9 @@ function parsePackage(raw: any): PackageSpec | undefined {
 
 export function parseCandidate(raw: any): SpreadCandidate | string {
   if (!raw || typeof raw.title !== "string" || !raw.title.trim()) return "title is required";
-  const buyPrice = Number(raw.buyPrice);
-  if (!Number.isFinite(buyPrice) || buyPrice < 0) return "buyPrice must be a non-negative number";
+  // null, "" and booleans would all turn into 0 under Number(), and a $0 price can stamp BUY. Only a real price above zero counts.
+  const buyPrice = typeof raw.buyPrice === "number" ? raw.buyPrice : typeof raw.buyPrice === "string" && raw.buyPrice.trim() ? Number(raw.buyPrice) : Number.NaN;
+  if (!Number.isFinite(buyPrice) || buyPrice <= 0) return "buyPrice must be a price above $0";
   return {
     title: raw.title.trim().slice(0, 200),
     buyPrice,

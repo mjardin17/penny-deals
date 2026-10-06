@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CHANNEL_LABELS, ProfitResult, SalesChannel } from '../../../shared/fees';
 import { lookupUpcTitle } from '../lookupUpc';
+import { parseShelfPrice, safeHttpsUrl } from '../format';
 import { Coupon, fetchCouponsForMerchant } from '../../utils/coupons';
 
 /** Mirrors server/learning/loggedSpread.ts LoggedSpreadReport (JSON shape). */
@@ -74,14 +75,16 @@ function CouponBadge({ merchant }: { merchant?: string }) {
         <code style={{ fontSize: 13, color: '#f5f5f7', background: '#0b0b0d', padding: '2px 8px', borderRadius: 6 }}>
           {coupon.code}
         </code>
-        <a
-          href={coupon.affiliateUrl}
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontSize: 13, fontWeight: 700, color: '#000', background: '#ff9800', padding: '4px 10px', borderRadius: 8, textDecoration: 'none' }}
-        >
-          Claim
-        </a>
+        {safeHttpsUrl(coupon.affiliateUrl) && (
+          <a
+            href={safeHttpsUrl(coupon.affiliateUrl)!}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 13, fontWeight: 700, color: '#000', background: '#ff9800', padding: '4px 10px', borderRadius: 8, textDecoration: 'none' }}
+          >
+            Claim
+          </a>
+        )}
       </div>
     </div>
   );
@@ -368,9 +371,9 @@ export function ScanScreen() {
   }
 
   async function checkSpread() {
-    const price = Number(buyPrice);
+    const price = parseShelfPrice(buyPrice);
     if (!title.trim()) return setError('Enter a title (or scan a barcode first).');
-    if (!Number.isFinite(price) || price < 0) return setError('Enter a valid buy price.');
+    if (price === null) return setError('Enter the price on the shelf. It has to be more than $0.');
 
     setChecking(true);
     setError(null);

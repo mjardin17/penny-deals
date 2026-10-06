@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, messageOf, postJson } from "../api";
+import { roiLabel } from "../format";
 
 interface Hit {
   post: { source: string; id: string; title: string; url: string; publishedAt: string; score?: number };
@@ -28,8 +29,8 @@ interface Feed {
 }
 
 interface Spread {
-  bestRealSpread?: { channel: string; resalePrice?: number; profit?: { netProfit: number; roiPct: number } } | null;
-  channels: { channel: string; status: string; statusMessage: string; resalePrice?: number; profit?: { netProfit: number; roiPct: number } }[];
+  bestRealSpread?: { channel: string; resalePrice?: number; profit?: { netProfit: number; roiPct: number | null } } | null;
+  channels: { channel: string; status: string; statusMessage: string; resalePrice?: number; profit?: { netProfit: number; roiPct: number | null } }[];
 }
 
 const ZIP_KEY = "pennyDealsZip";
@@ -83,7 +84,7 @@ function ResaleCheck({ hit }: { hit: Hit }) {
       {state.result && best?.profit && (
         <div className="pd-banner pd-banner--info">
           <strong>Real spread:</strong> resale <span className="pd-mono">${best.resalePrice?.toFixed(2)}</span>, net{" "}
-          <span className="pd-mono">${best.profit.netProfit.toFixed(2)}</span> after fees ({best.profit.roiPct.toFixed(0)}% ROI).
+          <span className="pd-mono">${best.profit.netProfit.toFixed(2)}</span> after fees ({roiLabel(best.profit.roiPct)}).
         </div>
       )}
       {state.result && !best && (
@@ -104,18 +105,24 @@ export function DealsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Only the newest request may update the screen, so a slow answer for an old ZIP can't overwrite a newer one.
+  const latestRequest = useRef(0);
+
   const load = useCallback(async (z: string) => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
     setError(null);
     try {
       const data = await getJson<Feed>(`/api/deals/today${z ? `?zip=${encodeURIComponent(z)}` : ""}`);
+      if (requestId !== latestRequest.current) return;
       setFeed(data);
       setInput((current) => current || data.zip);
     } catch (err) {
+      if (requestId !== latestRequest.current) return;
       setFeed(null);
       setError(messageOf(err));
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   }, []);
 
@@ -166,6 +173,13 @@ export function DealsScreen() {
       {feed?.stale && (
         <div className="pd-banner pd-banner--warn">
           Showing the last good answer from {ago(feed.fetchedAt)}. A refresh just failed: {feed.staleReason}
+        </div>
+      )}
+
+      {feed && feed.sources.some((s) => s.state === "failed" && !s.name.includes("OpenStreetMap")) && (
+        <div className="pd-banner pd-banner--warn" role="status">
+          Some deal sources failed, so this list may be missing posts:{" "}
+          {feed.sources.filter((s) => s.state === "failed" && !s.name.includes("OpenStreetMap")).map((s) => s.name).join(", ")}. Details are under "Where this came from".
         </div>
       )}
 

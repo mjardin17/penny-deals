@@ -13,10 +13,17 @@ import { createIntegrationsRouter } from "./routes/integrations";
 import { createDealsRouter } from "./routes/deals";
 import { createCardsRouter } from "./routes/cards";
 import { rateLimit } from "./middleware/rateLimit";
+import { dailyCap } from "./middleware/dailyCap";
 import { marketplaceCache } from "./marketplace/cache";
 import { basicAuthMiddleware } from "./basicAuth";
 
 const MINUTE = 60_000;
+const DEFAULT_PHOTO_READS_PER_DAY = 100;
+
+function photoReadsPerDay(): number {
+  const n = Number(process.env.GEMINI_DAILY_CAP);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_PHOTO_READS_PER_DAY;
+}
 
 export function createApp(): Express {
   const app = express();
@@ -54,6 +61,8 @@ export function createApp(): Express {
     ["/api/deals", 20],
     ["/api/cards", 30],
   ];
+  // The photo reader calls Gemini, so it gets its own tight per-minute limit plus a daily cap. Both sit before the routes.
+  app.use("/api/cards/identify", rateLimit({ windowMs: MINUTE, max: 5 }), dailyCap({ max: photoReadsPerDay() }));
   for (const [prefix, max] of limits) app.use(prefix, rateLimit({ windowMs: MINUTE, max }));
 
   app.use("/api", marketplaceRouter);

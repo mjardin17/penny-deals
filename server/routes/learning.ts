@@ -19,21 +19,23 @@ learningRouter.post("/learning/outcome", async (req, res) => {
   const { id, stage, actualPrice } = req.body ?? {};
   if (typeof id !== "string" || !id.trim()) return res.status(400).json({ success: false, error: "id is required" });
   if (stage !== "bought" && stage !== "sold") return res.status(400).json({ success: false, error: 'stage must be "bought" or "sold"' });
-  if (stage === "sold" && !Number.isFinite(Number(actualPrice))) {
-    return res.status(400).json({ success: false, error: "actualPrice is required when stage is sold" });
+  const soldFor = typeof actualPrice === "number" ? actualPrice : typeof actualPrice === "string" && actualPrice.trim() ? Number(actualPrice) : Number.NaN;
+  if (stage === "sold" && (!Number.isFinite(soldFor) || soldFor <= 0)) {
+    return res.status(400).json({ success: false, error: "actualPrice must be the real sale price, above $0" });
   }
 
   try {
     const updated = await recordOutcome(id, {
       stage,
-      actualPrice: stage === "sold" ? Number(actualPrice) : undefined,
+      actualPrice: stage === "sold" ? soldFor : undefined,
       recordedAt: new Date().toISOString(),
       method: "manual",
     });
     if (!updated) return res.status(404).json({ success: false, error: "No prediction with that id" });
     // A real reported sale also teaches the price brain (logged, never blocks recording the outcome).
-    if (stage === "sold") teachBrainFromSale(getBrain(), updated, Number(actualPrice));
-    res.json({ success: true, data: updated });
+    // The brain may refuse the number (for example a typo far above the recorded price); say so instead of hiding it.
+    const brain = stage === "sold" ? teachBrainFromSale(getBrain(), updated, soldFor) : undefined;
+    res.json({ success: true, data: updated, brain });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || "Failed to record outcome" });
   }

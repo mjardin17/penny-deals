@@ -93,6 +93,10 @@ export function CardsScreen() {
   const [summary, setSummary] = useState<GradeSummary | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Newest-request-wins counters: a slow answer for an old photo, search or card must not overwrite a newer one.
+  const photoSeq = useRef(0);
+  const listSeq = useRef(0);
+  const detailSeq = useRef(0);
 
   useEffect(() => {
     getJson<GradeSummary>("/api/cards/grade-summary").then(setSummary).catch(() => setSummary(null));
@@ -107,6 +111,9 @@ export function CardsScreen() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const mine = ++photoSeq.current;
+    listSeq.current++;
+    detailSeq.current++;
     setBusy("photo");
     setError(null);
     setIdentified(null);
@@ -115,37 +122,43 @@ export function CardsScreen() {
     setSaved(null);
     try {
       const prepared = await preparePhoto(file);
+      if (mine !== photoSeq.current) return;
       setPhoto(prepared);
       setCentering(measureCentering(prepared.raster));
     } catch (err) {
+      if (mine !== photoSeq.current) return;
       setPhoto(null);
       setCentering(null);
       setError(messageOf(err));
     } finally {
-      setBusy(null);
+      if (mine === photoSeq.current) setBusy(null);
     }
   }
 
   async function identify() {
     if (!photo) return;
+    const mine = ++listSeq.current;
     setBusy("identify");
     setError(null);
     setNeedsKey(false);
     try {
       const out = await postJson<Identified>("/api/cards/identify", { image: { base64: photo.base64, mimeType: photo.mimeType } });
+      if (mine !== listSeq.current) return;
       setIdentified(out);
       setCandidates(out.candidates);
       if (out.candidates.length === 0) setError("The photo was read, but no card in the database matches. Check the name and number below, or search by hand.");
     } catch (err) {
+      if (mine !== listSeq.current) return;
       if ((err as ApiFailure).code === "vision_not_configured") setNeedsKey(true);
       else setError(messageOf(err));
     } finally {
-      setBusy(null);
+      if (mine === listSeq.current) setBusy(null);
     }
   }
 
   async function searchByHand(e: React.FormEvent) {
     e.preventDefault();
+    const mine = ++listSeq.current;
     setBusy("identify");
     setError(null);
     try {
@@ -153,25 +166,31 @@ export function CardsScreen() {
       if (searchName.trim()) params.set("name", searchName.trim());
       if (searchNumber.trim()) params.set("number", searchNumber.trim());
       const found = await getJson<Card[]>(`/api/cards/search?${params}`);
+      if (mine !== listSeq.current) return;
       setCandidates(found);
       if (found.length === 0) setError("No card matched that. Try just the name, or just the number.");
     } catch (err) {
+      if (mine !== listSeq.current) return;
       setError(messageOf(err));
     } finally {
-      setBusy(null);
+      if (mine === listSeq.current) setBusy(null);
     }
   }
 
   async function choose(card: Card) {
+    const mine = ++detailSeq.current;
     setBusy("detail");
     setError(null);
     setSaved(null);
     try {
-      setDetail(await getJson<CardDetail>(`/api/cards/card/${encodeURIComponent(card.id)}`));
+      const loaded = await getJson<CardDetail>(`/api/cards/card/${encodeURIComponent(card.id)}`);
+      if (mine !== detailSeq.current) return;
+      setDetail(loaded);
     } catch (err) {
+      if (mine !== detailSeq.current) return;
       setError(messageOf(err));
     } finally {
-      setBusy(null);
+      if (mine === detailSeq.current) setBusy(null);
     }
   }
 

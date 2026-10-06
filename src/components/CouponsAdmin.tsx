@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Tag, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
 import { Coupon, CouponSourceStatus, fetchAllCouponsForAdmin, fetchCouponSources } from '../utils/coupons';
+import { safeHttpsUrl } from '../app/format';
 
 interface CouponsAdminProps {
   onNotify?: (msg: string, type?: 'success' | 'info' | 'error') => void;
@@ -129,9 +130,11 @@ export const CouponsAdmin: React.FC<CouponsAdminProps> = ({ onNotify }) => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <a href={c.affiliateUrl} target="_blank" rel="noreferrer" className="text-[#64d2ff]">
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+                  {safeHttpsUrl(c.affiliateUrl) && (
+                    <a href={safeHttpsUrl(c.affiliateUrl)!} target="_blank" rel="noreferrer" className="text-[#64d2ff]">
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
                   {c.active && (
                     <button type="button" onClick={() => deactivate(c.id)} className="text-[#ff453a]" title="Deactivate">
                       <Trash2 className="w-4 h-4" />

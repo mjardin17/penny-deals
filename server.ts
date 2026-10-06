@@ -7,12 +7,14 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createApp } from "./server/app";
+import { isExposed, resolveHost } from "./server/bindHost";
 
 dotenv.config({ path: [".env.local", ".env"] });
 
 const PORT = Number(process.env.PORT) || 3000;
-// All interfaces by default, because the phone reaches this through Tailscale. Set HOST=127.0.0.1 to keep it on this computer only.
-const HOST = process.env.HOST || "0.0.0.0";
+// This computer only by default. The phone reaches it through Tailscale Serve, which forwards to localhost.
+// Set HOST=0.0.0.0 only if you want other devices to connect directly (and then set the TUNNEL_BASIC_AUTH_* password).
+const HOST = resolveHost(process.env);
 const app = createApp();
 
 async function startServer() {
@@ -29,6 +31,9 @@ async function startServer() {
 
   app.listen(PORT, HOST, () => {
     console.log(`Penny Deals server running on http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
+    if (isExposed(HOST) && !(process.env.TUNNEL_BASIC_AUTH_USER && process.env.TUNNEL_BASIC_AUTH_PASS)) {
+      console.warn(`WARNING: listening on ${HOST} with no password. Anyone who can reach this PC can use the app. Set TUNNEL_BASIC_AUTH_USER and TUNNEL_BASIC_AUTH_PASS, or remove HOST.`);
+    }
   });
 }
 
