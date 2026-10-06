@@ -6,6 +6,7 @@
 import { findSpread, SpreadCandidate, SpreadReport } from "../arbitrage/spreadEngine";
 import { appendPrediction, PredictionSource } from "./predictionsLog";
 import { loadWeights, lookupConfidence } from "./weights";
+import { Brain, itemKey } from "../brain/brain";
 
 export interface SpreadLogMeta {
   category: string;
@@ -17,8 +18,12 @@ export interface LoggedSpreadReport extends SpreadReport {
   confidenceLabel: string | null;
 }
 
-export async function findSpreadAndLog(candidate: SpreadCandidate, meta: SpreadLogMeta): Promise<LoggedSpreadReport> {
-  const report = await findSpread(candidate);
+/**
+ * `brain` is passed only by the running server. The digest is a separate process and must not
+ * open the same memory file, or the two would overwrite each other.
+ */
+export async function findSpreadAndLog(candidate: SpreadCandidate, meta: SpreadLogMeta, brain?: Brain): Promise<LoggedSpreadReport> {
+  const report = await findSpread(candidate, undefined, undefined, brain);
   const best = report.bestRealSpread ?? report.channels.find((c) => c.status === "ok");
 
   const record = await appendPrediction({
@@ -27,6 +32,7 @@ export async function findSpreadAndLog(candidate: SpreadCandidate, meta: SpreadL
     buyPrice: candidate.buyPrice,
     predictedResale: best?.resalePrice,
     predictedProfit: best?.profit?.netProfit,
+    brainKey: itemKey(candidate.title, candidate.upc),
     category: meta.category,
     source: meta.source,
   });

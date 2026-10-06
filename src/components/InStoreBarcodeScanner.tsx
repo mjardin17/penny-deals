@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { lookupBarcode, lookupBarcodeAsync, getLiveLookupLinks, BarcodeScanMatch } from '../utils/barcodeLookup';
+import { ShelfPriceMemory } from './ShelfPriceMemory';
 import { generateCrossStoreComparison } from '../utils/crossStoreScanner';
 import { soundFx } from '../utils/audioFeedback';
 
@@ -902,6 +903,8 @@ export const InStoreBarcodeScanner: React.FC<InStoreBarcodeScannerProps> = ({
                   </div>
                 );
               })()}
+
+              <ShelfPriceMemory upc={scanResult.upc} title={scanResult.title} onNotify={onNotify} />
 
               {/* Action Buttons */}
               <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">

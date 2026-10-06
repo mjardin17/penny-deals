@@ -83,11 +83,9 @@ export class EbayTokenManager {
       : "https://api.ebay.com/identity/v1/oauth2/token";
 
     this.inFlightTokenPromise = (async () => {
-      // Browse item_summary/search only needs the base scope. Requesting a scope the app
-      // wasn't granted (e.g. commerce.catalog.readonly) fails the whole token with invalid_scope.
       const body = new URLSearchParams({
         grant_type: "client_credentials",
-        scope: process.env.EBAY_OAUTH_SCOPES || "https://api.ebay.com/oauth/api_scope",
+        scope: process.env.EBAY_OAUTH_SCOPES?.trim() || "https://api.ebay.com/oauth/api_scope",
       });
 
       const response = await this.httpExecutor(tokenUrl, {
@@ -294,7 +292,7 @@ export class EbayMarketplaceProvider {
 
       const token = await this.tokenManager.getAccessToken();
       const params = new URLSearchParams({
-        q: query,
+        ...(options.gtin ? { gtin: options.gtin } : { q: query }),
         limit: String(Math.min(options.limit || 10, 50)),
         offset: String(options.offset || 0),
         ...(options.categoryId ? { category_ids: options.categoryId } : {}),

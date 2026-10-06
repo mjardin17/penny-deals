@@ -110,6 +110,8 @@ export interface NormalizedEbayListing {
 }
 
 export interface EbayBrowseSearchOptions {
+  /** Search by barcode (UPC/EAN/ISBN) instead of keywords. eBay needs one or the other. */
+  gtin?: string;
   limit?: number;
   offset?: number;
   categoryId?: string;

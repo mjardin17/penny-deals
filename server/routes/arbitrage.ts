@@ -3,6 +3,8 @@ import { SpreadCandidate } from "../arbitrage/spreadEngine";
 import { FEE_SOURCES, FEE_TABLES_RETRIEVED, PackageSpec } from "../../shared/fees";
 import { findSpreadAndLog, SpreadLogMeta } from "../learning/loggedSpread";
 import { PredictionSource } from "../learning/predictionsLog";
+import { getBrain } from "../brain/instance";
+import { normalizeStore } from "../brain/brain";
 
 export const arbitrageRouter = Router();
 
@@ -27,8 +29,9 @@ export function parseCandidate(raw: any): SpreadCandidate | string {
     title: raw.title.trim().slice(0, 200),
     buyPrice,
     upc: typeof raw.upc === "string" && /^\d{8,14}$/.test(raw.upc.trim()) ? raw.upc.trim() : undefined,
-    store: typeof raw.store === "string" ? raw.store.slice(0, 60) : undefined,
+    store: normalizeStore(raw.store),
     pkg: parsePackage(raw.pkg),
+    priceIsUserTyped: raw.priceIsUserTyped === true,
   };
 }
 
@@ -47,7 +50,7 @@ arbitrageRouter.post("/arbitrage/spread", async (req, res) => {
   const parsed = parseCandidate(req.body);
   if (typeof parsed === "string") return res.status(400).json({ success: false, error: parsed });
   try {
-    res.json({ success: true, data: await findSpreadAndLog(parsed, parseLogMeta(req.body)) });
+    res.json({ success: true, data: await findSpreadAndLog(parsed, parseLogMeta(req.body), getBrain() ?? undefined) });
   } catch (err: any) {
     console.error("[arbitrage/spread]", err);
     res.status(500).json({ success: false, error: err?.message || "Spread check failed" });
@@ -67,7 +70,7 @@ arbitrageRouter.post("/arbitrage/spread-batch", async (req, res) => {
     const reports = [];
     // Sequential on purpose: the providers share rate limiters.
     for (let i = 0; i < candidates.length; i++) {
-      reports.push(await findSpreadAndLog(candidates[i] as SpreadCandidate, parseLogMeta(items[i])));
+      reports.push(await findSpreadAndLog(candidates[i] as SpreadCandidate, parseLogMeta(items[i]), getBrain() ?? undefined));
     }
     res.json({ success: true, data: reports });
   } catch (err: any) {

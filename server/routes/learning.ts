@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { pendingFeedback, readPredictions, recordOutcome } from "../learning/predictionsLog";
 import { loadWeights } from "../learning/weights";
+import { getBrain } from "../brain/instance";
+import { teachBrainFromSale } from "../learning/brainBridge";
 
 export const learningRouter = Router();
 
@@ -29,6 +31,8 @@ learningRouter.post("/learning/outcome", async (req, res) => {
       method: "manual",
     });
     if (!updated) return res.status(404).json({ success: false, error: "No prediction with that id" });
+    // A real reported sale also teaches the price brain (logged, never blocks recording the outcome).
+    if (stage === "sold") teachBrainFromSale(getBrain(), updated, Number(actualPrice));
     res.json({ success: true, data: updated });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || "Failed to record outcome" });

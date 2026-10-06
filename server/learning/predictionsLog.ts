@@ -29,6 +29,8 @@ export interface PredictionRecord {
   predictedProfit?: number;
   category: string;
   source: PredictionSource;
+  /** Which item this is to the brain (UPC or normalized title), so a reported sale can teach it. */
+  brainKey?: string;
   outcome?: PredictionOutcome;
 }
 
@@ -40,6 +42,7 @@ export interface NewPrediction {
   predictedProfit?: number;
   category: string;
   source: PredictionSource;
+  brainKey?: string;
 }
 
 export function defaultLogPath(): string {

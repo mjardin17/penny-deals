@@ -27,6 +27,8 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // The dev server must never hand out secrets, the brain's memory file, or server source.
+      fs: { deny: ['.env', '.env.*', '**/data/**', '**/server/**', '**/server.ts', '*.{crt,pem}', '**/.git/**'] },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

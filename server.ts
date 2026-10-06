@@ -10,6 +10,8 @@ import { marketplaceRouter } from "./server/routes/marketplace";
 import { aiResearchRouter } from "./server/routes/aiResearch";
 import { arbitrageRouter } from "./server/routes/arbitrage";
 import { learningRouter } from "./server/routes/learning";
+import { createBrainRouter } from "./server/routes/brain";
+import { rateLimit } from "./server/middleware/rateLimit";
 import { couponsRouter } from "./server/routes/coupons";
 import { marketplaceCache } from "./server/marketplace/cache";
 import { cacheSize } from "./server/gemini";
@@ -40,7 +42,12 @@ app.get("/api/health", (_req, res) => {
 app.use("/api", marketplaceRouter);
 app.use("/api", aiResearchRouter);
 app.use("/api", arbitrageRouter);
+// These endpoints spend eBay/Amazon quota or write to the brain; no one should be able to flood them.
+app.use("/api/brain", rateLimit({ windowMs: 60_000, max: 120 }));
+app.use("/api/arbitrage", rateLimit({ windowMs: 60_000, max: 30 }));
+
 app.use("/api", learningRouter);
+app.use("/api", createBrainRouter());
 app.use("/api", couponsRouter);
 
 app.use("/api", (_req, res) => {
