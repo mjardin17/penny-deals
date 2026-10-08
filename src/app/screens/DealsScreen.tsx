@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, messageOf, postJson } from "../api";
-import { roiLabel } from "../format";
+import { roiLabel, sourceProblems } from "../format";
 
 interface Hit {
   post: { source: string; id: string; title: string; url: string; publishedAt: string; score?: number };
@@ -152,6 +152,8 @@ export function DealsScreen() {
     setZip(input);
   }
 
+  const problems = feed ? sourceProblems(feed.sources) : { failed: [], skipped: [] };
+
   return (
     <div className="pd-stack">
       <div>
@@ -184,10 +186,11 @@ export function DealsScreen() {
         </div>
       )}
 
-      {feed && feed.sources.some((s) => s.state === "failed" && !s.name.includes("OpenStreetMap")) && (
+      {feed && (problems.failed.length > 0 || problems.skipped.length > 0) && (
         <div className="pd-banner pd-banner--warn" role="status">
-          Some deal sources failed, so this list may be missing posts:{" "}
-          {feed.sources.filter((s) => s.state === "failed" && !s.name.includes("OpenStreetMap")).map((s) => s.name).join(", ")}. Details are under "Where this came from".
+          This list may be missing posts.
+          {problems.failed.length > 0 && <> Failed: {problems.failed.join(", ")}.</>}
+          {problems.skipped.length > 0 && <> Not checked: {problems.skipped.join(", ")}.</>} Details are under "Where this came from".
         </div>
       )}
 

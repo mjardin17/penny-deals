@@ -276,7 +276,7 @@ async function amazonSpread(c: SpreadCandidate, pkg: PackageSpec, p: SpreadProvi
     matchUrl: prod.detailPageUrl,
     matchScore: score,
     profit,
-    // Gating is not checked here; the UI links to the Boxem ungating tool.
+    // Amazon category gating is not checked here.
     isRealSpread: judge(profit, t),
   };
 }

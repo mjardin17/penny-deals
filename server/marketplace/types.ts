@@ -13,7 +13,6 @@ export type CapabilityState =
 
 export type DataProvenance =
   | "confirmed_marketplace_api"
-  | "estimated_inferred_ai"
   /** No data exists for this request; nothing is estimated in its place. */
   | "unavailable";
 

@@ -19,3 +19,14 @@ test("only https links are clickable", () => {
   assert.equal(safeHttpsUrl("https://example.com/a"), "https://example.com/a");
   for (const bad of ["http://example.com", "javascript:alert(1)", "data:text/html,x", "not a url", "", null, 5]) assert.equal(safeHttpsUrl(bad), null);
 });
+
+test("any failed or skipped deal source produces a visible warning, ok sources do not", async () => {
+  const { sourceProblems } = await import("../src/app/format");
+  assert.deepEqual(sourceProblems([{ name: "Slickdeals", state: "ok" }]), { failed: [], skipped: [] });
+  const out = sourceProblems([
+    { name: "Slickdeals", state: "ok" },
+    { name: "Reddit", state: "skipped" },
+    { name: "Nearby stores (OpenStreetMap)", state: "failed" },
+  ]);
+  assert.deepEqual(out, { failed: ["Nearby stores (OpenStreetMap)"], skipped: ["Reddit"] });
+});

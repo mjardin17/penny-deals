@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getJson, messageOf, postJson, ApiFailure } from "../api";
 import { preparePhoto, PreparedPhoto } from "../cardPhoto";
 import { CenteringResult, measureCentering } from "../../../shared/cards/centering";
+import { centeringForSave, GRADE_COMPANIES, GRADE_VALUES, validGradeChoice } from "../cardGrade";
 import { centeringGradeCap, CENTERING_SOURCE } from "../../../shared/cards/gradeCap";
 
 interface PriceBlock {
@@ -83,13 +84,21 @@ export function CardsScreen() {
   const [identified, setIdentified] = useState<Identified | null>(null);
   const [candidates, setCandidates] = useState<Card[]>([]);
   const [detail, setDetail] = useState<CardDetail | null>(null);
-  const [busy, setBusy] = useState<"photo" | "identify" | "detail" | null>(null);
+  // One flag per kind of request, so a slow card lookup never shows as "reading the photo" and vice versa.
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [identifyBusy, setIdentifyBusy] = useState(false);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // Which photo the card on screen was picked against. Centering is saved only when it matches the measured photo.
+  const [detailPhotoId, setDetailPhotoId] = useState<number | null>(null);
+  const [measuredPhotoId, setMeasuredPhotoId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsKey, setNeedsKey] = useState(false);
   const [searchName, setSearchName] = useState("");
   const [searchNumber, setSearchNumber] = useState("");
-  const [company, setCompany] = useState("PSA");
-  const [grade, setGrade] = useState("9");
+  const [company, setCompany] = useState("");
+  const [grade, setGrade] = useState("");
   const [summary, setSummary] = useState<GradeSummary | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -97,10 +106,27 @@ export function CardsScreen() {
   const photoSeq = useRef(0);
   const listSeq = useRef(0);
   const detailSeq = useRef(0);
+  const summarySeq = useRef(0);
+  const photoIdRef = useRef<number | null>(null);
+  const saveInFlight = useRef(false);
 
   useEffect(() => {
-    getJson<GradeSummary>("/api/cards/grade-summary").then(setSummary).catch(() => setSummary(null));
+    const mine = ++summarySeq.current;
+    getJson<GradeSummary>("/api/cards/grade-summary")
+      .then((next) => {
+        if (mine === summarySeq.current) setSummary(next);
+      })
+      .catch(() => {
+        if (mine === summarySeq.current) setSummary(null);
+      });
   }, []);
+
+  // Photo, search and card pickers wait while any lookup is running, so answers cannot cross.
+  const lookupRunning = photoBusy || identifyBusy || searchBusy || detailBusy;
+  const measured =
+    centering?.ok && measuredPhotoId !== null
+      ? { photoId: measuredPhotoId, horizontal: centering.horizontal.larger, vertical: centering.vertical.larger }
+      : null;
 
   const cap = useMemo(
     () => (centering?.ok ? centeringGradeCap(centering.horizontal.larger, centering.vertical.larger) : null),
@@ -114,31 +140,40 @@ export function CardsScreen() {
     const mine = ++photoSeq.current;
     listSeq.current++;
     detailSeq.current++;
-    setBusy("photo");
+    photoIdRef.current = null;
+    setPhotoBusy(true);
+    setIdentifyBusy(false);
+    setSearchBusy(false);
+    setDetailBusy(false);
     setError(null);
     setIdentified(null);
     setCandidates([]);
     setDetail(null);
+    setDetailPhotoId(null);
     setSaved(null);
+    setPhoto(null);
+    setCentering(null);
+    setMeasuredPhotoId(null);
     try {
       const prepared = await preparePhoto(file);
       if (mine !== photoSeq.current) return;
+      photoIdRef.current = mine;
       setPhoto(prepared);
       setCentering(measureCentering(prepared.raster));
+      setMeasuredPhotoId(mine);
     } catch (err) {
       if (mine !== photoSeq.current) return;
-      setPhoto(null);
-      setCentering(null);
       setError(messageOf(err));
     } finally {
-      if (mine === photoSeq.current) setBusy(null);
+      if (mine === photoSeq.current) setPhotoBusy(false);
     }
   }
 
   async function identify() {
     if (!photo) return;
     const mine = ++listSeq.current;
-    setBusy("identify");
+    setIdentifyBusy(true);
+    setSearchBusy(false);
     setError(null);
     setNeedsKey(false);
     try {
@@ -152,14 +187,15 @@ export function CardsScreen() {
       if ((err as ApiFailure).code === "vision_not_configured") setNeedsKey(true);
       else setError(messageOf(err));
     } finally {
-      if (mine === listSeq.current) setBusy(null);
+      if (mine === listSeq.current) setIdentifyBusy(false);
     }
   }
 
   async function searchByHand(e: React.FormEvent) {
     e.preventDefault();
     const mine = ++listSeq.current;
-    setBusy("identify");
+    setSearchBusy(true);
+    setIdentifyBusy(false);
     setError(null);
     try {
       const params = new URLSearchParams();
@@ -173,37 +209,53 @@ export function CardsScreen() {
       if (mine !== listSeq.current) return;
       setError(messageOf(err));
     } finally {
-      if (mine === listSeq.current) setBusy(null);
+      if (mine === listSeq.current) setSearchBusy(false);
     }
   }
 
   async function choose(card: Card) {
     const mine = ++detailSeq.current;
-    setBusy("detail");
+    const pickedWithPhoto = photoIdRef.current;
+    setDetailBusy(true);
     setError(null);
     setSaved(null);
+    setDetail(null);
+    setDetailPhotoId(null);
     try {
       const loaded = await getJson<CardDetail>(`/api/cards/card/${encodeURIComponent(card.id)}`);
       if (mine !== detailSeq.current) return;
       setDetail(loaded);
+      setDetailPhotoId(pickedWithPhoto);
     } catch (err) {
       if (mine !== detailSeq.current) return;
       setError(messageOf(err));
     } finally {
-      if (mine === detailSeq.current) setBusy(null);
+      if (mine === detailSeq.current) setDetailBusy(false);
     }
   }
 
   async function saveResult() {
-    if (!detail) return;
+    if (!detail || saveInFlight.current || !validGradeChoice(company, grade)) return;
+    saveInFlight.current = true;
+    setSaving(true);
+    setSaved(null);
+    const target = detail;
+    const mine = detailSeq.current;
     try {
-      const body: Record<string, unknown> = { cardId: detail.card.id, company, grade: Number(grade) };
-      if (centering?.ok) body.centering = { horizontal: centering.horizontal.larger, vertical: centering.vertical.larger };
+      const body: Record<string, unknown> = { cardId: target.card.id, company, grade: Number(grade) };
+      const centeringToSave = centeringForSave(measured, detailPhotoId);
+      if (centeringToSave) body.centering = centeringToSave;
       const next = await postJson<GradeSummary>("/api/cards/grade-result", body);
+      summarySeq.current++;
       setSummary(next);
-      setSaved(`Saved ${company} ${grade} for ${cardLabel(detail.card)}.`);
+      if (mine === detailSeq.current) {
+        setSaved(`Saved ${company} ${grade} for ${cardLabel(target.card)}${centeringToSave ? ", with the centering from your photo" : ", without centering (no photo was measured for this card)"}.`);
+      }
     } catch (err) {
       setError(messageOf(err));
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
     }
   }
 
@@ -221,12 +273,12 @@ export function CardsScreen() {
       <div className="pd-card pd-stack">
         <div className="pd-row">
           <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={onFile} hidden aria-label="Card photo" />
-          <button className="pd-btn" onClick={() => fileRef.current?.click()} disabled={busy === "photo"}>
-            {busy === "photo" ? "Preparing photo…" : photo ? "Take another photo" : "Take or choose a photo"}
+          <button className="pd-btn" onClick={() => fileRef.current?.click()} disabled={lookupRunning}>
+            {photoBusy ? "Preparing photo…" : photo ? "Take another photo" : "Take or choose a photo"}
           </button>
           {photo && (
-            <button className="pd-btn pd-btn--ghost" onClick={identify} disabled={busy === "identify"}>
-              {busy === "identify" ? "Reading the card…" : "Read this card"}
+            <button className="pd-btn pd-btn--ghost" onClick={identify} disabled={lookupRunning}>
+              {identifyBusy ? "Reading the card…" : "Read this card"}
             </button>
           )}
         </div>
@@ -252,16 +304,16 @@ export function CardsScreen() {
       )}
 
       <form className="pd-card pd-row" onSubmit={searchByHand}>
-        <input className="pd-input" style={{ flex: 2, minWidth: 140 }} placeholder="Card name" value={searchName} onChange={(e) => setSearchName(e.target.value)} aria-label="Card name" />
-        <input className="pd-input pd-mono" style={{ flex: 1, minWidth: 90 }} placeholder="4/102" value={searchNumber} onChange={(e) => setSearchNumber(e.target.value)} aria-label="Card number" />
-        <button className="pd-btn pd-btn--ghost" type="submit" disabled={busy === "identify"}>Search by hand</button>
+        <input className="pd-input" style={{ flex: 2, minWidth: 140 }} placeholder="Card name" value={searchName} disabled={lookupRunning} onChange={(e) => setSearchName(e.target.value)} aria-label="Card name" />
+        <input className="pd-input pd-mono" style={{ flex: 1, minWidth: 90 }} placeholder="4/102" value={searchNumber} disabled={lookupRunning} onChange={(e) => setSearchNumber(e.target.value)} aria-label="Card number" />
+        <button className="pd-btn pd-btn--ghost" type="submit" disabled={lookupRunning}>{searchBusy ? "Searching…" : "Search by hand"}</button>
       </form>
 
       {candidates.length > 0 && (
         <div className="pd-stack">
           <h2 className="pd-h2">Which one is it?</h2>
           {candidates.map((c) => (
-            <button key={c.id} className="pd-cardpick" aria-pressed={detail?.card.id === c.id} onClick={() => choose(c)}>
+            <button key={c.id} className="pd-cardpick" aria-pressed={detail?.card.id === c.id} disabled={photoBusy || identifyBusy || searchBusy} onClick={() => choose(c)}>
               {c.image ? <img src={c.image} alt="" loading="lazy" /> : <div />}
               <div>
                 <div style={{ fontWeight: 700 }}>{cardLabel(c)}</div>
@@ -272,7 +324,7 @@ export function CardsScreen() {
         </div>
       )}
 
-      {busy === "detail" && <div className="pd-skeleton" />}
+      {detailBusy && <div className="pd-skeleton" />}
 
       {detail && (
         <div className="pd-card pd-stack">
@@ -322,13 +374,15 @@ export function CardsScreen() {
           <h2 className="pd-h2">Got a real grade back?</h2>
           <p className="pd-small pd-muted" style={{ margin: 0 }}>Record what the grading company actually gave this card. That builds the app's own track record of how often its centering ceiling holds.</p>
           <div className="pd-row">
-            <select className="pd-select" style={{ width: 110 }} value={company} onChange={(e) => setCompany(e.target.value)} aria-label="Grading company">
-              {["PSA", "BGS", "CGC", "SGC"].map((c) => <option key={c}>{c}</option>)}
+            <select className="pd-select" style={{ width: 130 }} value={company} onChange={(e) => setCompany(e.target.value)} aria-label="Grading company">
+              <option value="" disabled>Company…</option>
+              {GRADE_COMPANIES.map((c) => <option key={c}>{c}</option>)}
             </select>
-            <select className="pd-select" style={{ width: 90 }} value={grade} onChange={(e) => setGrade(e.target.value)} aria-label="Grade">
-              {Array.from({ length: 19 }, (_, i) => String(10 - i * 0.5)).map((g) => <option key={g}>{g}</option>)}
+            <select className="pd-select" style={{ width: 100 }} value={grade} onChange={(e) => setGrade(e.target.value)} aria-label="Grade">
+              <option value="" disabled>Grade…</option>
+              {GRADE_VALUES.map((g) => <option key={g}>{g}</option>)}
             </select>
-            <button className="pd-btn pd-btn--small" onClick={saveResult}>Save result</button>
+            <button className="pd-btn pd-btn--small" onClick={saveResult} disabled={saving || !validGradeChoice(company, grade)}>{saving ? "Saving…" : "Save result"}</button>
           </div>
           {saved && <div className="pd-banner pd-banner--info">{saved}</div>}
         </div>

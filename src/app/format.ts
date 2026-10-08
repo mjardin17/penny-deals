@@ -23,3 +23,11 @@ export function safeHttpsUrl(raw: unknown): string | null {
     return null;
   }
 }
+
+/** Names of deal sources that failed or were skipped, so the screen can warn about possibly missing posts. */
+export function sourceProblems(sources: { name: string; state: "ok" | "failed" | "skipped" }[]): { failed: string[]; skipped: string[] } {
+  return {
+    failed: sources.filter((s) => s.state === "failed").map((s) => s.name),
+    skipped: sources.filter((s) => s.state === "skipped").map((s) => s.name),
+  };
+}

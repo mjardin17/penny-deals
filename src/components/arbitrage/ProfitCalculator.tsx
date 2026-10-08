@@ -6,8 +6,6 @@ import {
   breakEvenPrice,
   calculateProfit,
   CHANNEL_LABELS,
-  DEFAULT_EBAY_BUYER_TAX_RATE,
-  DEFAULT_HANDLING_COST,
   EBAY_CATEGORY_LABELS,
   EbayCategory,
   FEE_SOURCES,
@@ -22,6 +20,7 @@ import {
   TiktokCategory,
   UspsZone,
 } from "../../../shared/fees";
+import { canCalculateProfit, defaultedAssumptions, PROFIT_DEFAULTS } from "./profitReadiness";
 
 export interface ProfitCalculatorPrefill {
   title?: string;
@@ -164,23 +163,24 @@ export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) =
   const [salePrice, setSalePrice] = useState<number | null>(prefill?.salePrice ?? null);
   const [cogs, setCogs] = useState<number | null>(prefill?.buyPrice ?? null);
   const [buyerShipping, setBuyerShipping] = useState(0);
-  const [weightLb, setWeightLb] = useState(1);
-  const [dims, setDims] = useState({ lengthIn: 10, widthIn: 8, heightIn: 4 });
-  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("groundAdvantage");
-  const [zone, setZone] = useState<UspsZone>(6);
-  const [handling, setHandling] = useState(DEFAULT_HANDLING_COST);
+  const [weightLb, setWeightLb] = useState(PROFIT_DEFAULTS.weightLb);
+  const [dims, setDims] = useState(PROFIT_DEFAULTS.dims);
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>(PROFIT_DEFAULTS.shippingMethod);
+  const [zone, setZone] = useState<UspsZone>(PROFIT_DEFAULTS.zone);
+  const [handling, setHandling] = useState(PROFIT_DEFAULTS.handling);
   const [ebayCategory, setEbayCategory] = useState<EbayCategory>("most");
-  const [ebayPromotedPct, setEbayPromotedPct] = useState(2);
-  const [ebayTaxPct, setEbayTaxPct] = useState(DEFAULT_EBAY_BUYER_TAX_RATE * 100);
+  const [ebayPromotedPct, setEbayPromotedPct] = useState(PROFIT_DEFAULTS.ebayPromotedPct);
+  const [ebayTaxPct, setEbayTaxPct] = useState(PROFIT_DEFAULTS.ebayTaxPct);
   const [amazonCategory, setAmazonCategory] = useState<AmazonCategory>("everythingElse");
-  const [fbaInbound, setFbaInbound] = useState(0.5);
+  const [fbaInbound, setFbaInbound] = useState(PROFIT_DEFAULTS.fbaInbound);
   const [tiktokCategory, setTiktokCategory] = useState<TiktokCategory>("standard");
   const [tiktokAffiliatePct, setTiktokAffiliatePct] = useState(0);
 
-  const hasInputs = salePrice !== null && salePrice > 0 && cogs !== null;
+  const hasInputs = canCalculateProfit(salePrice, cogs);
+  const assumptions = defaultedAssumptions({ weightLb, dims, shippingMethod, zone, handling, ebayPromotedPct, ebayTaxPct, fbaInbound });
 
   const outcomes = useMemo<ChannelOutcome[]>(() => {
-    if (salePrice === null || salePrice <= 0 || cogs === null) return [];
+    if (!hasInputs || salePrice === null || cogs === null) return [];
     const shared: Omit<ProfitInput, "channel" | "salePrice"> = {
       cogs,
       buyerShipping,
@@ -205,7 +205,7 @@ export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) =
         return { channel, error: message };
       }
     });
-  }, [salePrice, cogs, buyerShipping, weightLb, dims, shippingMethod, zone, handling, ebayCategory, ebayPromotedPct, ebayTaxPct, amazonCategory, fbaInbound, tiktokCategory, tiktokAffiliatePct]);
+  }, [hasInputs, salePrice, cogs, buyerShipping, weightLb, dims, shippingMethod, zone, handling, ebayCategory, ebayPromotedPct, ebayTaxPct, amazonCategory, fbaInbound, tiktokCategory, tiktokAffiliatePct]);
 
   const bestChannel = outcomes
     .filter((o) => o.result)
@@ -272,7 +272,7 @@ export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) =
 
       {!hasInputs && (
         <p className="text-xs text-[#92929d] m-0 mb-1" role="status">
-          Enter a sale price (above $0) and your cost to see the numbers. Nothing is assumed for you.
+          Enter a sale price and your cost (both above $0) to see the numbers. Nothing is assumed for you.
         </p>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -280,6 +280,22 @@ export const ProfitCalculator: React.FC<ProfitCalculatorProps> = ({ prefill }) =
           <ChannelCard key={o.channel} outcome={o} best={o.channel === bestChannel && (o.result?.netProfit ?? 0) > 0} />
         ))}
       </div>
+
+      {hasInputs && assumptions.length > 0 && (
+        <div className="mt-3 rounded-xl border border-[#ff9f0a]/40 bg-[#ff9f0a]/5 p-3" role="note">
+          <p className="text-[11px] font-bold text-[#ff9f0a] m-0 mb-1 uppercase tracking-wide">Assumptions, not your numbers</p>
+          <p className="text-[11px] text-[#92929d] m-0 mb-1.5">
+            These are still at their starting values, so the results above use them as guesses. Change them in the boxes above or in Channel settings.
+          </p>
+          <ul className="text-[11px] text-[#f5f5f7] m-0 pl-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            {assumptions.map((a) => (
+              <li key={a.key}>
+                {a.label}: <strong>{a.value}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <p className="text-[11px] text-[#92929d] mt-3 mb-0 flex gap-1.5">
         <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />

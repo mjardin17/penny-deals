@@ -1,13 +1,13 @@
 # Penny Deals
 
-Penny and clearance hunting app, with the arbitrage engine from `Ebay-amazon-app` merged in.
+Penny and clearance hunting app with a resale-profit engine: scan in the store, get a buy / don't-buy verdict with real fees.
 
 ## Run
 
 ```bash
 npm install
 cp .env.example .env.local   # fill in what you have
-npm run dev                  # http://localhost:3000 (Express + Vite)
+PORT=3100 npm run dev        # Express + Vite, default port 3000
 npm test                     # fees, spread engine, digest, cards, brain, routes and screens' helpers
 npm run typecheck && npm run build && npm start
 ```
@@ -31,15 +31,18 @@ Only real, linkable posts are included. Missing prices stay "not stated", and do
 
 To run it daily on Windows, create a Task Scheduler task that runs `npm run digest` in this folder.
 
-## Arbitrage
+## What is in the app
 
-The **💸 Arbitrage** tab has:
+Six screens, along the bottom bar:
 
-- **Spread Finder**: takes an item and a buy price, checks live eBay Browse and Amazon Creators API prices, and applies real fees. A spread is flagged only when comps are confirmed, the title match is confident, every fee table is verified, and the item clears $10 net profit and 50% ROI.
-- **Profit Calculator**: compares eBay, Amazon FBA, Amazon FBM and TikTok Shop side by side, with break-even prices.
-- **VeRO check, Amazon ungating, Temu and Alibaba scanners**: Gemini estimates, clearly labelled. They are never counted as real spreads.
+- **Scan**: scan or type a barcode in the store, enter the shelf price, and get a buy / don't-buy check against live eBay and Amazon prices with real fees. A spread is flagged only when comps are confirmed, the title match is confident, every fee table is verified, and the item clears $10 net profit and 50% ROI.
+- **Deals today**: penny and clearance deals from the daily digest sources. If any source failed or was skipped, the screen says so.
+- **Cards**: photograph a Pokémon card to find it in the real card database, see prices, and measure centering (the one thing a photo can truly measure). It never gives a grade.
+- **My scans**: every item you have checked, with the prices you typed.
+- **Connections**: which services (eBay, Amazon, Gemini, and so on) are connected and what is missing.
+- **Tools**: **Spread Finder** (item + buy price, live comps), **Profit Calculator** (eBay, Amazon FBA, Amazon FBM and TikTok Shop side by side, with break-even prices) and the coupon admin page.
 
-Clicking a deal in any hub prefills the Spread Finder.
+The Profit Calculator starts empty. It shows nothing until a real sale price and cost are entered, and any setting you have not changed (weight, box size, postage zone, handling, ad %, tax %) is listed on screen as an assumption you can edit.
 
 ### Fee tables (`shared/fees`, retrieved 2026-09-18)
 
@@ -56,7 +59,7 @@ Source URLs are in `shared/fees/meta.ts` and at `GET /api/fees/sources`. Re-chec
 
 ## Safety rules the app enforces
 
-- **Real data only.** A price of $0, an empty price or a made-up default is refused (shelf price, sold price, Profit calculator start empty). If every deal source fails, the Deals screen says so instead of showing "no deals".
+- **Real data only.** A price of $0, an empty price or a made-up default is refused (shelf price, sold price; the Profit calculator starts empty). If every deal source fails, the Deals screen says so instead of showing "no deals".
 - **Limits.** Card photo reads: 5 per minute per device plus `GEMINI_DAILY_CAP` per day. Other routes have their own per-minute limits (see `server/app.ts`).
 - **Coupon links** must be https; anything else is refused when saved and never shown as a link.
 - **Binding.** The server listens on 127.0.0.1 by default. `HOST=0.0.0.0` opens it to the network and prints a warning unless a Basic Auth password is set.
