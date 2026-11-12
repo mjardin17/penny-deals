@@ -62,3 +62,15 @@ Done: photo reads limited to 5/min plus a daily cap (`GEMINI_DAILY_CAP`); a $0, 
 Bind: the server now listens on 127.0.0.1 by default (was 0.0.0.0). Tailscale Serve forwards to localhost, so the phone URL should keep working; verify from the phone. Set HOST=0.0.0.0 only deliberately, and the server warns if no Basic Auth password is set.
 
 Still open: the Profit calculator's weight (1 lb) and box size (10x8x4) start with defaults that are not real; the Amazon/TikTok/eBay fee tables are real published rates.
+
+## Pokémon drops — 2026-11-12 (branch `feat/pokemon-drop-alerts`, PR into `feat/super-app`)
+
+New **Drops** tab (`src/app/screens/DropsScreen.tsx`) and `server/drops/`:
+
+- **Best Buy** (`server/drops/bestBuy.ts`): Best Buy's official Products API plus its per-SKU store-availability endpoint. Needs `BESTBUY_API_KEY`. Not yet run against a real key: field names follow Best Buy's docs, and tests use hand-written fixtures in that shape.
+- **Restock posts**: the same Reddit and Slickdeals feed as Deals, filtered to Pokémon TCG (one shared cache, `sharedLiveDeals()`). Reddit still needs `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`.
+- **User sightings** (`server/drops/sightings.ts`): reports typed in on the Drops screen, shared within the same 3-digit ZIP area for 48 hours, labelled unverified.
+- **Newest sets** (`server/drops/releases.ts`): pokemontcg.io set list with release dates.
+- **Discord alerts** (`server/drops/watcher.ts`, `discord.ts`): every 10 minutes, alerts on newly buyable/in-stock Best Buy items and new Pokémon posts. The first check only records; a source outage doesn't cause repeat alerts; all @-pings are blocked. Needs `DISCORD_DROPS_WEBHOOK_URL` and `DROP_ALERTS_ZIP` (or `DIGEST_ZIP`). Runs only while the server runs.
+
+Deliberately not built: Target, Walmart, Pokémon Center, GameStop or Costco stock. None of them publish it, and getting it means scraping against their terms (see "Explicitly NOT done" above).
