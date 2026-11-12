@@ -8,6 +8,9 @@ import path from "path";
 import dotenv from "dotenv";
 import { createApp } from "./server/app";
 import { isExposed, resolveHost } from "./server/bindHost";
+import { startDropAlerts } from "./server/drops/watcher";
+import { sharedDrops } from "./server/drops/dropFeed";
+import { sharedLiveDeals } from "./server/deals/liveDeals";
 
 dotenv.config({ path: [".env.local", ".env"] });
 
@@ -34,6 +37,16 @@ async function startServer() {
     if (isExposed(HOST) && !(process.env.TUNNEL_BASIC_AUTH_USER && process.env.TUNNEL_BASIC_AUTH_PASS)) {
       console.warn(`WARNING: listening on ${HOST} with no password. Anyone who can reach this PC can use the app. Set TUNNEL_BASIC_AUTH_USER and TUNNEL_BASIC_AUTH_PASS, or remove HOST.`);
     }
+    // Pokémon drop alerts to your own Discord channel. Off unless DISCORD_DROPS_WEBHOOK_URL is set.
+    startDropAlerts(process.env, async (zip) => {
+      const bestBuy = await sharedDrops().bestBuy.check(zip);
+      try {
+        const feed = await sharedLiveDeals().get(zip);
+        return { bestBuy, community: { ok: !feed.stale, hits: feed.hits.filter((h) => h.kind === "pokemon") } };
+      } catch {
+        return { bestBuy, community: { ok: false, hits: [] } };
+      }
+    });
   });
 }
 

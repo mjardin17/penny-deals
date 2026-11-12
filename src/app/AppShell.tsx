@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { ClipboardList, Ellipsis, Gem, PlugZap, ScanLine, Tags } from "lucide-react";
+import { BellRing, ClipboardList, Ellipsis, Gem, PlugZap, ScanLine, Tags } from "lucide-react";
 import { ScanScreen, MineScreen } from "./screens/ScanScreen";
 import { DealsScreen } from "./screens/DealsScreen";
+import { DropsScreen } from "./screens/DropsScreen";
 import { CardsScreen } from "./screens/CardsScreen";
 import { ConnectionsScreen } from "./screens/ConnectionsScreen";
 import { MoreScreen } from "./screens/MoreScreen";
@@ -11,6 +12,7 @@ import "./theme.css";
 const ROUTES = [
   { id: "scan", label: "Scan", icon: ScanLine, title: "Scan" },
   { id: "deals", label: "Deals", icon: Tags, title: "Deals today" },
+  { id: "drops", label: "Drops", icon: BellRing, title: "Pokémon drops" },
   { id: "cards", label: "Cards", icon: Gem, title: "Cards" },
   { id: "mine", label: "My scans", icon: ClipboardList, title: "My scans" },
   { id: "connections", label: "Connections", icon: PlugZap, title: "Connections" },
@@ -56,6 +58,7 @@ export function AppShell() {
         <ErrorBoundary key={route}>
           {route === "scan" && <ScanScreen />}
           {route === "deals" && <DealsScreen />}
+          {route === "drops" && <DropsScreen />}
           {route === "cards" && <CardsScreen />}
           {route === "mine" && <MineScreen />}
           {route === "connections" && <ConnectionsScreen />}

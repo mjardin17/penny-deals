@@ -11,6 +11,7 @@ import { couponsRouter } from "./routes/coupons";
 import { createBrainRouter } from "./routes/brain";
 import { createIntegrationsRouter } from "./routes/integrations";
 import { createDealsRouter } from "./routes/deals";
+import { createDropsRouter } from "./routes/drops";
 import { createCardsRouter } from "./routes/cards";
 import { rateLimit } from "./middleware/rateLimit";
 import { dailyCap } from "./middleware/dailyCap";
@@ -44,6 +45,7 @@ export function createApp(): Express {
       hasEbayCreds: Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET),
       hasAmazonCreds: Boolean(process.env.AMAZON_CREATORS_CREDENTIAL_ID && process.env.AMAZON_CREATORS_CREDENTIAL_SECRET),
       hasAmazonPartnerTag: Boolean(process.env.AMAZON_PARTNER_TAG),
+      hasBestBuyKey: Boolean(process.env.BESTBUY_API_KEY),
       marketplaceCacheStats: marketplaceCache.getStats(),
     });
   });
@@ -59,6 +61,7 @@ export function createApp(): Express {
     ["/api/coupons", 60],
     ["/api/integrations", 30],
     ["/api/deals", 20],
+    ["/api/drops", 20],
     ["/api/cards", 30],
   ];
   // The photo reader calls Gemini, so it gets its own tight per-minute limit plus a daily cap. Both sit before the routes.
@@ -71,6 +74,7 @@ export function createApp(): Express {
   app.use("/api", createBrainRouter());
   app.use("/api", createIntegrationsRouter());
   app.use("/api", createDealsRouter());
+  app.use("/api", createDropsRouter());
   app.use("/api", createCardsRouter());
   app.use("/api", couponsRouter);
 

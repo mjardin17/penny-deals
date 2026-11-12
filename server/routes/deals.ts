@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { LiveDealsResult, realLiveDeals } from "../deals/liveDeals";
+import { LiveDealsResult, sharedLiveDeals } from "../deals/liveDeals";
 
 type Feed = { get(zip: string): Promise<LiveDealsResult> };
 
-let shared: Feed | null = null;
 function defaultFeed(): Feed {
-  return (shared ??= realLiveDeals());
+  return sharedLiveDeals();
 }
 
 /** Router factory so tests can hand it their own feed. */

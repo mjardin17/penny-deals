@@ -67,3 +67,10 @@ export function realLiveDeals() {
   const defaults = loadConfig({ ...process.env, DIGEST_ZIP: process.env.DIGEST_ZIP || "02745" }, []);
   return createLiveDeals({ gather: gatherHits, now: Date.now, defaults });
 }
+
+let shared: ReturnType<typeof realLiveDeals> | null = null;
+
+/** One feed for the whole server, so the Deals screen, the Drops screen and drop alerts share a cache. */
+export function sharedLiveDeals() {
+  return (shared ??= realLiveDeals());
+}
