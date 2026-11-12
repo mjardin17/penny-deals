@@ -112,14 +112,12 @@ export function parseStores(body: any): BestBuyStore[] {
   });
 }
 
-export function createBestBuy(options: BestBuyOptions) {
+/** Low-level GET against api.bestbuy.com. Errors never carry the URL, because the URL carries the key. */
+export function createBestBuyApi(options: Pick<BestBuyOptions, "apiKey" | "fetchImpl" | "timeoutMs">) {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const timeoutMs = options.timeoutMs ?? 10_000;
-  const skus = options.skus ?? [];
-  const maxStoreChecks = options.maxStoreChecks ?? DEFAULT_MAX_STORE_CHECKS;
 
-  async function getJson(pathAndQuery: string): Promise<any> {
+  return async function getJson(pathAndQuery: string): Promise<any> {
     const sep = pathAndQuery.includes("?") ? "&" : "?";
     const url = `${BASE_URL}/${pathAndQuery}${sep}apiKey=${encodeURIComponent(options.apiKey ?? "")}`;
     const controller = new AbortController();
@@ -136,7 +134,14 @@ export function createBestBuy(options: BestBuyOptions) {
     } finally {
       clearTimeout(timer);
     }
-  }
+  };
+}
+
+export function createBestBuy(options: BestBuyOptions) {
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const skus = options.skus ?? [];
+  const maxStoreChecks = options.maxStoreChecks ?? DEFAULT_MAX_STORE_CHECKS;
+  const getJson = createBestBuyApi(options);
 
   async function check(zip: string): Promise<BestBuyResult> {
     if (!options.apiKey) {

@@ -74,3 +74,15 @@ New **Drops** tab (`src/app/screens/DropsScreen.tsx`) and `server/drops/`:
 - **Discord alerts** (`server/drops/watcher.ts`, `discord.ts`): every 10 minutes, alerts on newly buyable/in-stock Best Buy items and new Pokémon posts. The first check only records; a source outage doesn't cause repeat alerts; all @-pings are blocked. Needs `DISCORD_DROPS_WEBHOOK_URL` and `DROP_ALERTS_ZIP` (or `DIGEST_ZIP`). Runs only while the server runs.
 
 Deliberately not built: Target, Walmart, Pokémon Center, GameStop or Costco stock. None of them publish it, and getting it means scraping against their terms (see "Explicitly NOT done" above).
+
+## Retailer stock monitor — 2026-11-12 (local branch `feat/pokemon-monitor-layer`, not pushed)
+
+`npm run monitor -- --once` prints one pass as a table. `npm run monitor` repeats every `MONITOR_EVERY_MINUTES` (default 5, floor 2) and posts to `DISCORD_DROPS_WEBHOOK_URL` only when a store/product's stock really changes (first pass only records; blocked/unknown never trigger a repeat). Code: `server/monitor/`. Watchlist: `server/monitor/watchlist.ts`.
+
+How each store is read (rules in `server/monitor/policy.ts`):
+- **Target North Dartmouth, Walmart Fairhaven:** never fetched. Both retailers' terms forbid scrapers and automated tools, so they report `disallowed`.
+- **GameStop:** product pages only, after robots.txt allows them, reading the page's schema.org availability (online stock; GameStop publishes no per-store stock). Terms not verified.
+- **Best Buy North Dartmouth:** official Developer API (`BESTBUY_API_KEY`), that store's own stock.
+- **Pokémon Center:** robots.txt only; its Incapsula wall answers even that, so it reports `blocked` and backs off.
+
+Every fetch: honest User-Agent, robots.txt first, 3 s between requests to a site, and on 403/429/challenge the site is marked blocked with a 30 min to 6 h back-off. No proxies, no header spoofing, no captcha solving, no checkout.
